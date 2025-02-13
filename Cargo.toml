@@ -1,0 +1,39 @@
+[package]
+name = "init4-bin-base"
+
+description = "Internal utilities for binaries produced by the init4 team"
+keywords = ["init4", "bin", "base"]
+
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.81"
+authors = ["init4", "James Prestwich"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/init4tech/bin-base"
+repository = "https://github.com/init4tech/bin-base"
+
+[dependencies]
+# Tracing
+tracing = "0.1.40"
+tracing-core = "0.1.33"
+tracing-subscriber = { version = "0.3.18", features = ["registry"] }
+
+# OTLP
+opentelemetry_sdk = "0.28.0"
+opentelemetry = "0.28.0"
+opentelemetry-otlp = "0.28.0"
+opentelemetry-semantic-conventions = { version = "0.28.0", features = ["semconv_experimental"] }
+tracing-opentelemetry = "0.29.0"
+url = "2.5.4"
+
+# Metrics
+metrics = "0.24.1"
+metrics-exporter-prometheus = "0.16.2"
+
+# Other
+thiserror = "2.0.11"
+
+[dev-dependencies]
+serial_test = "3.2.0"
+signal-hook = "0.3.17"
+tokio = { version = "1.43.0", features = ["macros"] }
