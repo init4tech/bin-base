@@ -17,6 +17,12 @@ pub struct MetricsConfig {
     pub port: u16,
 }
 
+impl Default for MetricsConfig {
+    fn default() -> Self {
+        Self { port: 9000 }
+    }
+}
+
 impl From<Option<u16>> for MetricsConfig {
     fn from(port: Option<u16>) -> Self {
         Self {
@@ -35,7 +41,10 @@ impl FromEnv for MetricsConfig {
     type Error = std::num::ParseIntError;
 
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
-        u16::from_env_var(METRICS_PORT).map(Self::from)
+        match u16::from_env_var(METRICS_PORT).map(Self::from) {
+            Ok(cfg) => Ok(cfg),
+            Err(_) => Ok(Self::default()),
+        }
     }
 }
 

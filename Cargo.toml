@@ -16,7 +16,7 @@ repository = "https://github.com/init4tech/bin-base"
 # Tracing
 tracing = "0.1.40"
 tracing-core = "0.1.33"
-tracing-subscriber = { version = "0.3.18", features = ["registry"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "registry"] }
 
 # OTLP
 opentelemetry_sdk = "0.28.0"

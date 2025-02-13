@@ -1,5 +1,5 @@
 use crate::utils::otlp::{OtelConfig, OtelGuard};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
 /// Init tracing, returning an optional guard for the OTEL provider.
 ///
@@ -16,7 +16,10 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 ///
 /// [`OtelConfig`]: crate::utils::otlp::OtelConfig
 pub fn init_tracing() -> Option<OtelGuard> {
-    let registry = tracing_subscriber::registry().with(tracing_subscriber::fmt::layer());
+    let registry = tracing_subscriber::registry().with(
+        tracing_subscriber::fmt::layer()
+            .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env()),
+    );
 
     if let Some(cfg) = OtelConfig::load() {
         let guard = cfg.provider();
