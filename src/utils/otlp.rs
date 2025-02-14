@@ -133,9 +133,9 @@ impl OtelConfig {
     /// Load from env vars.
     ///
     /// The env vars it checks are:
-    ///   return [`None`].
-    /// - `OTEL_PROTOCOL` - optional. Specifies the OTLP protocol to use, should
-    ///   be one of "grpc", "binary" or "json". Defaults to json.
+    /// - `OTEL_EXPORTER_OTLP_ENDPOINT` - optional. The endpoint to send traces
+    ///    to. If missing or unparsable, this function will return [`None`], and
+    ///    OTLP exporting will be disabled.
     /// - `OTEL_LEVEL` - optional. Specifies the minimum [`tracing::Level`] to
     ///   export. Defaults to [`tracing::Level::DEBUG`].
     /// - `OTEL_TIMEOUT` - optional. Specifies the timeout for the exporter in
@@ -205,7 +205,7 @@ mod test {
 
     fn test_env_read() {
         run_clear_env(|| {
-            std::env::set_var("OTEL_ENDPOINT", URL);
+            std::env::set_var(OTEL_ENDPOINT, URL);
 
             let cfg = OtelConfig::load().unwrap();
             assert_eq!(cfg.endpoint, URL.parse().unwrap());

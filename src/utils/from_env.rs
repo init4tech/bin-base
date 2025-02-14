@@ -202,11 +202,11 @@ mod test {
     #[test]
     fn test_a_few_errors() {
         test_expect_err::<u8, _>(
-            "U8",
+            "U8_",
             30000u16,
             FromEnvErr::parse_error("30000".parse::<u8>().unwrap_err()),
         );
 
-        test_expect_err::<u8, _>("U8", "", FromEnvErr::empty("U8"));
+        test_expect_err::<u8, _>("U8_", "", FromEnvErr::empty("U8_"));
     }
 }
