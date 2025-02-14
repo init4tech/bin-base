@@ -1,3 +1,4 @@
+use crate::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar};
 use opentelemetry::{trace::TracerProvider, KeyValue};
 use opentelemetry_sdk::trace::SdkTracerProvider;
 use opentelemetry_sdk::Resource;
@@ -10,12 +11,7 @@ use tracing::level_filters::LevelFilter;
 use tracing_subscriber::Layer;
 use url::Url;
 
-use crate::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar};
-
-use super::from_env::parse_env_if_present;
-
-const OTEL_ENDPOINT: &str = "OTEL_ENDPOINT";
-const OTEL_PROTOCOL: &str = "OTEL_PROTOCOL";
+const OTEL_ENDPOINT: &str = "OTEL_EXPORTER_OTLP_ENDPOINT";
 const OTEL_LEVEL: &str = "OTEL_LEVEL";
 const OTEL_TIMEOUT: &str = "OTEL_TIMEOUT";
 const OTEL_ENVIRONMENT: &str = "OTEL_ENVIRONMENT_NAME";
@@ -65,18 +61,6 @@ impl Drop for OtelGuard {
     }
 }
 
-/// OTLP protocol choices
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum OtlpProtocols {
-    /// GRPC.
-    Grpc,
-    /// Binary.
-    Binary,
-    /// JSON.
-    #[default]
-    Json,
-}
-
 /// Otlp parse error.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OtlpParseError(String);
@@ -95,45 +79,12 @@ impl core::fmt::Display for OtlpParseError {
 
 impl core::error::Error for OtlpParseError {}
 
-impl FromEnvVar for OtlpProtocols {
-    type Error = OtlpParseError;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
-        parse_env_if_present(env_var)
-    }
-}
-
-impl std::str::FromStr for OtlpProtocols {
-    type Err = OtlpParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            s if s.eq_ignore_ascii_case("grpc") => Ok(Self::Grpc),
-            s if s.eq_ignore_ascii_case("binary") => Ok(Self::Binary),
-            s if s.eq_ignore_ascii_case("json") => Ok(Self::Json),
-            _ => Err(OtlpParseError(format!("Invalid protocol: {}", s))),
-        }
-    }
-}
-
-impl From<OtlpProtocols> for opentelemetry_otlp::Protocol {
-    fn from(protocol: OtlpProtocols) -> Self {
-        match protocol {
-            OtlpProtocols::Grpc => Self::Grpc,
-            OtlpProtocols::Binary => Self::HttpBinary,
-            OtlpProtocols::Json => Self::HttpJson,
-        }
-    }
-}
-
 /// Otel configuration. This struct is intended to be loaded from the env vars
 ///
 /// The env vars it checks are:
-/// - OTEL_ENDPOINT - optional. The endpoint to send traces to, should be some
-///   valid URL. If not specified, then [`OtelConfig::load`] will return
-///   [`None`].
-/// - OTEL_PROTOCOL - optional. Specifies the OTLP protocol to use, should be
-///   one of "grpc", "binary" or "json". Defaults to json.
+/// - `OTEL_EXPORTER_OTLP_ENDPOINT` - optional. The endpoint to send traces to,
+///   should be some valid URL. If not specified, then [`OtelConfig::load`]
+///   will return [`None`].
 /// - OTEL_LEVEL - optional. Specifies the minimum [`tracing::Level`] to
 ///   export. Defaults to [`tracing::Level::DEBUG`].
 /// - OTEL_TIMEOUT - optional. Specifies the timeout for the exporter in
@@ -146,8 +97,7 @@ pub struct OtelConfig {
     /// The endpoint to send traces to, should be some valid HTTP endpoint for
     /// OTLP.
     pub endpoint: Url,
-    /// Defaults to JSON.
-    pub protocol: OtlpProtocols,
+
     /// Defaults to DEBUG.
     pub level: tracing::Level,
     /// Defaults to 1 second. Specified in Milliseconds.
@@ -164,8 +114,6 @@ impl FromEnv for OtelConfig {
         // load endpoint from env. ignore empty values (shortcut return None), parse, and print the error if any using inspect_err
         let endpoint = Url::from_env_var(OTEL_ENDPOINT).inspect_err(|e| eprintln!("{e}"))?;
 
-        let protocol = OtlpProtocols::from_env_var(OTEL_PROTOCOL).unwrap_or_default();
-
         let level = tracing::Level::from_env_var(OTEL_LEVEL).unwrap_or(tracing::Level::DEBUG);
 
         let timeout = Duration::from_env_var(OTEL_TIMEOUT).unwrap_or(Duration::from_millis(1000));
@@ -174,7 +122,6 @@ impl FromEnv for OtelConfig {
 
         Ok(Self {
             endpoint,
-            protocol,
             level,
             timeout,
             environment,
@@ -186,8 +133,6 @@ impl OtelConfig {
     /// Load from env vars.
     ///
     /// The env vars it checks are:
-    /// - `OTEL_ENDPOINT` - optional. The endpoint to send traces to, should be
-    ///   some  valid URL. If not specified, then [`OtelConfig::load`] will
     ///   return [`None`].
     /// - `OTEL_PROTOCOL` - optional. Specifies the OTLP protocol to use, should
     ///   be one of "grpc", "binary" or "json". Defaults to json.
@@ -242,7 +187,6 @@ mod test {
 
     fn clear_env() {
         std::env::remove_var(OTEL_ENDPOINT);
-        std::env::remove_var(OTEL_PROTOCOL);
         std::env::remove_var(OTEL_LEVEL);
         std::env::remove_var(OTEL_TIMEOUT);
         std::env::remove_var(OTEL_ENVIRONMENT);
@@ -265,22 +209,9 @@ mod test {
 
             let cfg = OtelConfig::load().unwrap();
             assert_eq!(cfg.endpoint, URL.parse().unwrap());
-            assert_eq!(cfg.protocol, OtlpProtocols::Json);
             assert_eq!(cfg.level, tracing::Level::DEBUG);
             assert_eq!(cfg.timeout, std::time::Duration::from_millis(1000));
             assert_eq!(cfg.environment, "unknown");
-        })
-    }
-
-    #[test]
-    #[serial_test::serial]
-    fn test_env_read_protocol() {
-        run_clear_env(|| {
-            std::env::set_var(OTEL_ENDPOINT, URL);
-            std::env::set_var(OTEL_PROTOCOL, "grpc");
-
-            let cfg = OtelConfig::load().unwrap();
-            assert_eq!(cfg.protocol, OtlpProtocols::Grpc);
         })
     }
 

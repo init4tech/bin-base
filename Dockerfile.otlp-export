@@ -1,5 +1,17 @@
 FROM rust:1.81
 
-COPY ./ ./
+COPY Cargo.toml Cargo.toml
+COPY Cargo.lock Cargo.lock
+COPY ./src/ ./src/
 
-RUN cargo run --example otlp-export --manifest-path ./Cargo.toml
+RUN cargo build --release --locked
+
+COPY ./examples/build-helper.rs ./examples/build-helper.rs
+
+RUN cargo build --example build-helper --release --locked
+
+COPY ./examples/otlp-export.rs ./examples/otlp-export.rs
+
+RUN cargo build --example otlp-export --release --locked
+
+CMD ./target/release/examples/otlp-export

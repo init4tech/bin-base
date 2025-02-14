@@ -5,7 +5,7 @@
 //! - 1 span every 5 seconds
 //! - 1 event every 5 seconds
 //!
-//! It can be killed via
+//! It can be killed via sigint or sigterm
 
 use init4_bin_base::{
     deps::tracing::{info, info_span},
@@ -23,7 +23,6 @@ async fn main() -> Result<(), std::io::Error> {
     signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term))?;
 
     let _guard = init4();
-
     let mut counter = 0;
     let _outer = info_span!("outer span").entered();
 
@@ -37,5 +36,6 @@ async fn main() -> Result<(), std::io::Error> {
     }
 
     info!("signal received, shutting down");
+
     Ok(())
 }
