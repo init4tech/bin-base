@@ -1,4 +1,4 @@
-use std::{env::VarError, num::ParseIntError, str::FromStr};
+use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 
 /// Error type for loading from the environment. See the [`FromEnv`] trait for
 /// more information.
@@ -15,7 +15,30 @@ pub enum FromEnvErr<Inner> {
     ParseError(#[from] Inner),
 }
 
+impl FromEnvErr<Infallible> {
+    /// Convert the error into another error type.
+    pub fn infallible_into<T>(self) -> FromEnvErr<T> {
+        match self {
+            Self::EnvError(s, e) => FromEnvErr::EnvError(s, e),
+            Self::Empty(s) => FromEnvErr::Empty(s),
+            Self::ParseError(_) => unreachable!(),
+        }
+    }
+}
+
 impl<Inner> FromEnvErr<Inner> {
+    /// Create a new error from another error type.
+    pub fn from<Other>(other: FromEnvErr<Other>) -> Self
+    where
+        Inner: From<Other>,
+    {
+        match other {
+            FromEnvErr::EnvError(s, e) => Self::EnvError(s, e),
+            FromEnvErr::Empty(s) => Self::Empty(s),
+            FromEnvErr::ParseError(e) => Self::ParseError(Inner::from(e)),
+        }
+    }
+
     /// Missing env var.
     pub fn env_err(var: &str, e: VarError) -> Self {
         Self::EnvError(var.to_string(), e)
@@ -78,21 +101,20 @@ pub trait FromEnvVar: core::fmt::Debug + Sized + 'static {
     fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>>;
 }
 
-macro_rules! impl_primitive_from_env {
-    ($($t:ty),*) => {
-        $(
-            impl FromEnvVar for $t {
-                type Error = std::num::ParseIntError;
+impl<T> FromEnvVar for Option<T>
+where
+    T: FromEnvVar,
+{
+    type Error = T::Error;
 
-                fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
-                    parse_env_if_present(env_var)
-                }
-            }
-        )*
-    };
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+        match std::env::var(env_var) {
+            Ok(s) if s.is_empty() => Ok(None),
+            Ok(_) => T::from_env_var(env_var).map(Some),
+            Err(_) => Ok(None),
+        }
+    }
 }
-
-impl_primitive_from_env!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
 
 impl FromEnvVar for String {
     type Error = std::convert::Infallible;
@@ -102,27 +124,58 @@ impl FromEnvVar for String {
     }
 }
 
-impl FromEnvVar for url::Url {
-    type Error = url::ParseError;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
-        parse_env_if_present(env_var)
-    }
-}
-
-impl FromEnvVar for tracing::Level {
-    type Error = tracing_core::metadata::ParseLevelError;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
-        parse_env_if_present(env_var)
-    }
-}
-
 impl FromEnvVar for std::time::Duration {
     type Error = ParseIntError;
 
     fn from_env_var(s: &str) -> Result<Self, FromEnvErr<Self::Error>> {
         u64::from_env_var(s).map(Self::from_millis)
+    }
+}
+
+macro_rules! impl_for_parseable {
+    ($($t:ty),*) => {
+        $(
+            impl FromEnvVar for $t {
+                type Error = <$t as FromStr>::Err;
+
+                fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+                    parse_env_if_present(env_var)
+                }
+            }
+        )*
+    }
+}
+
+impl_for_parseable!(
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    url::Url,
+    tracing::Level
+);
+
+#[cfg(feature = "alloy")]
+impl_for_parseable!(
+    alloy::primitives::Address,
+    alloy::primitives::Bytes,
+    alloy::primitives::U256
+);
+
+#[cfg(feature = "alloy")]
+impl<const N: usize> FromEnvVar for alloy::primitives::FixedBytes<N> {
+    type Error = <alloy::primitives::FixedBytes<N> as FromStr>::Err;
+
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+        parse_env_if_present(env_var)
     }
 }
 

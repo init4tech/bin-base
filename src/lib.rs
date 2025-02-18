@@ -39,6 +39,7 @@ pub mod deps {
     pub use opentelemetry_otlp;
     pub use opentelemetry_sdk;
     pub use tracing;
+    pub use tracing_core;
     pub use tracing_opentelemetry;
     pub use tracing_subscriber;
 }
