@@ -160,7 +160,8 @@ impl_for_parseable!(
     i128,
     isize,
     url::Url,
-    tracing::Level
+    tracing::Level,
+    bool
 );
 
 #[cfg(feature = "alloy")]
