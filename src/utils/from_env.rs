@@ -160,8 +160,7 @@ impl_for_parseable!(
     i128,
     isize,
     url::Url,
-    tracing::Level,
-    bool
+    tracing::Level
 );
 
 #[cfg(feature = "alloy")]
@@ -177,6 +176,15 @@ impl<const N: usize> FromEnvVar for alloy::primitives::FixedBytes<N> {
 
     fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
         parse_env_if_present(env_var)
+    }
+}
+
+impl FromEnvVar for bool {
+    type Error = std::str::ParseBoolError;
+
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+        let s: String = std::env::var(env_var).map_err(|e| FromEnvErr::env_err(env_var, e))?;
+        Ok(!s.is_empty())
     }
 }
 
