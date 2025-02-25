@@ -179,6 +179,15 @@ impl<const N: usize> FromEnvVar for alloy::primitives::FixedBytes<N> {
     }
 }
 
+impl FromEnvVar for bool {
+    type Error = std::str::ParseBoolError;
+
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+        let s: String = std::env::var(env_var).map_err(|e| FromEnvErr::env_err(env_var, e))?;
+        Ok(!s.is_empty())
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::time::Duration;
