@@ -16,7 +16,6 @@
 //! cargo run --example ajj
 //! ```
 //!
-//!
 //! ```no_compile
 //! curl -X POST \
 //!     -H 'Content-Type: application/json' \
