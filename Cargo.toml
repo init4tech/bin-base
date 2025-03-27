@@ -32,7 +32,7 @@ metrics-exporter-prometheus = "0.16.2"
 
 # Other
 thiserror = "2.0.11"
-alloy = { version = "0.11.1", optional = true, default-features = false, features = ["std"] }
+alloy = { version = "0.12.6", optional = true, default-features = false, features = ["std"] }
 
 [dev-dependencies]
 ajj = "0.3.1"
