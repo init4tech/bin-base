@@ -34,6 +34,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tracing::info!("serving hello world");
             Ok::<_, ()>("Hello, world!")
         })
+        .route("addNumbers", |(a, b): (u32, u32)| async move {
+            tracing::info!("serving addNumbers");
+            Ok::<_, ()>(a + b)
+        })
         .into_axum("/rpc");
 
     let listener = tokio::net::TcpListener::bind("localhost:8080")
