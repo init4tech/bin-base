@@ -39,6 +39,17 @@ impl<Inner> FromEnvErr<Inner> {
         }
     }
 
+    /// Map the error to another type. This is useful for converting the error
+    /// type to a different type, while keeping the other error information
+    /// intact.
+    pub fn map<New>(self, f: impl FnOnce(Inner) -> New) -> FromEnvErr<New> {
+        match self {
+            Self::EnvError(s, e) => FromEnvErr::EnvError(s, e),
+            Self::Empty(s) => FromEnvErr::Empty(s),
+            Self::ParseError(e) => FromEnvErr::ParseError(f(e)),
+        }
+    }
+
     /// Missing env var.
     pub fn env_err(var: &str, e: VarError) -> Self {
         Self::EnvError(var.to_string(), e)

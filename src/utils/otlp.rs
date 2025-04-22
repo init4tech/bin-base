@@ -134,8 +134,8 @@ impl OtelConfig {
     ///
     /// The env vars it checks are:
     /// - `OTEL_EXPORTER_OTLP_ENDPOINT` - optional. The endpoint to send traces
-    ///    to. If missing or unparsable, this function will return [`None`], and
-    ///    OTLP exporting will be disabled.
+    ///   to. If missing or unparsable, this function will return [`None`], and
+    ///   OTLP exporting will be disabled.
     /// - `OTEL_LEVEL` - optional. Specifies the minimum [`tracing::Level`] to
     ///   export. Defaults to [`tracing::Level::DEBUG`].
     /// - `OTEL_TIMEOUT` - optional. Specifies the timeout for the exporter in
