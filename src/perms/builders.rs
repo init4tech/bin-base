@@ -63,6 +63,7 @@ impl Builder {
         }
     }
     /// Get the sub of the builder.
+    #[allow(clippy::missing_const_for_fn)] // false positive, non-const deref
     pub fn sub(&self) -> &str {
         &self.sub
     }

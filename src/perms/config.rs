@@ -60,17 +60,17 @@ impl SlotAuthzConfig {
     }
 
     /// Get the chain offset in seconds.
-    pub fn chain_offset(&self) -> u64 {
+    pub const fn chain_offset(&self) -> u64 {
         self.chain_offset as u64
     }
 
     /// Get the block query cutoff time in seconds.
-    pub fn block_query_cutoff(&self) -> u64 {
+    pub const fn block_query_cutoff(&self) -> u64 {
         self.block_query_cutoff as u64
     }
 
     /// Get the block query start time in seconds.
-    pub fn block_query_start(&self) -> u64 {
+    pub const fn block_query_start(&self) -> u64 {
         self.block_query_start as u64
     }
 }
