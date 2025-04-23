@@ -32,6 +32,10 @@ pub mod utils {
 
     /// Tracing utilities.
     pub mod tracing;
+
+    /// Slot calculator for determining the current slot and timepoint within a
+    /// slot.
+    pub mod calc;
 }
 
 /// Re-exports of common dependencies.

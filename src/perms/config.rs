@@ -1,10 +1,8 @@
-use crate::{
-    perms::SlotCalcEnvError,
-    utils::from_env::{FromEnv, FromEnvErr, FromEnvVar},
+use crate::utils::{
+    calc::{SlotCalcEnvError, SlotCalculator},
+    from_env::{FromEnv, FromEnvErr, FromEnvVar},
 };
 use core::num;
-
-use super::SlotCalculator;
 
 // Environment variable names for configuration
 pub(crate) const BLOCK_QUERY_CUTOFF: &str = "BLOCK_QUERY_CUTOFF";

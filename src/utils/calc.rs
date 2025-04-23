@@ -27,7 +27,7 @@ pub struct SlotCalculator {
     /// The start timestamp.
     start_timestamp: u64,
 
-    /// This is the number of the slot containing the block which contains the[]
+    /// This is the number of the slot containing the block which contains the
     /// `start_timestamp`.
     ///
     /// This is needed for chains that contain a merge (like Ethereum Mainnet),

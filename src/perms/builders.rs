@@ -10,8 +10,11 @@
 //! Simply update the included `builders.json` file with the new builders.
 
 use crate::{
-    perms::{SlotAuthzConfig, SlotAuthzConfigError, SlotCalculator},
-    utils::from_env::{FromEnv, FromEnvErr, FromEnvVar},
+    perms::{SlotAuthzConfig, SlotAuthzConfigError},
+    utils::{
+        calc::SlotCalculator,
+        from_env::{FromEnv, FromEnvErr, FromEnvVar},
+    },
 };
 
 /// The builder list env var.
@@ -101,6 +104,11 @@ impl Builders {
         self.config.calc()
     }
 
+    /// Get the slot authorization configuration.
+    pub const fn config(&self) -> &SlotAuthzConfig {
+        &self.config
+    }
+
     /// Get the builder at a specific index.
     ///
     /// # Panics
@@ -132,25 +140,24 @@ impl Builders {
         self.builder_at(self.index_now() as usize)
     }
 
+    /// Check the query bounds for the current timestamp.
+    fn check_query_bounds(&self) -> Result<(), BuilderPermissionError> {
+        let current_slot_time = self.calc().current_timepoint_within_slot();
+        if current_slot_time < self.config.block_query_start() {
+            return Err(BuilderPermissionError::ActionAttemptTooEarly);
+        }
+        if current_slot_time > self.config.block_query_cutoff() {
+            return Err(BuilderPermissionError::ActionAttemptTooLate);
+        }
+        Ok(())
+    }
+
     /// Checks if a builder is allowed to perform an action.
     /// This is based on the current timestamp and the builder's sub. It's a
     /// round-robin design, where each builder is allowed to perform an action
     /// at a specific slot, and what builder is allowed changes with each slot.
     pub fn is_builder_permissioned(&self, sub: &str) -> Result<(), BuilderPermissionError> {
-        // Get the current timestamp.
-
-        // Calculate the current slot time, which is a number between 0 and 11.
-        let current_slot_time = self.calc().current_timepoint_within_slot();
-
-        // Builders can only perform actions between the configured start and cutoff times, to prevent any timing games.
-        if current_slot_time < self.config.block_query_start() {
-            tracing::debug!("Action attempt too early");
-            return Err(BuilderPermissionError::ActionAttemptTooEarly);
-        }
-        if current_slot_time > self.config.block_query_cutoff() {
-            tracing::debug!("Action attempt too late");
-            return Err(BuilderPermissionError::ActionAttemptTooLate);
-        }
+        self.check_query_bounds()?;
 
         if sub != self.current_builder().sub {
             tracing::debug!(
@@ -183,16 +190,16 @@ impl FromEnv for Builders {
 mod test {
 
     use super::*;
-    use crate::perms;
+    use crate::{perms, utils::calc};
 
     #[test]
     fn load_builders() {
         unsafe {
             std::env::set_var(BUILDERS, "0,1,2,3,4,5");
 
-            std::env::set_var(perms::calc::START_TIMESTAMP, "1");
-            std::env::set_var(perms::calc::SLOT_OFFSET, "0");
-            std::env::set_var(perms::calc::SLOT_DURATION, "12");
+            std::env::set_var(calc::START_TIMESTAMP, "1");
+            std::env::set_var(calc::SLOT_OFFSET, "0");
+            std::env::set_var(calc::SLOT_DURATION, "12");
 
             std::env::set_var(perms::config::BLOCK_QUERY_START, "1");
             std::env::set_var(perms::config::BLOCK_QUERY_CUTOFF, "11");
