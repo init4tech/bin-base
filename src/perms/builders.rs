@@ -20,9 +20,6 @@ use crate::{
 /// The builder list env var.
 const BUILDERS: &str = "PERMISSIONED_BUILDERS";
 
-/// Ethereum's slot time in seconds.
-pub const ETHEREUM_SLOT_TIME: u64 = 12;
-
 fn now() -> u64 {
     chrono::Utc::now().timestamp().try_into().unwrap()
 }
