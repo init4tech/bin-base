@@ -125,6 +125,10 @@ impl SlotCalculator {
 impl FromEnv for SlotCalculator {
     type Error = SlotCalcEnvError;
 
+    fn inventory() -> Vec<&'static str> {
+        vec![START_TIMESTAMP, SLOT_OFFSET, SLOT_DURATION]
+    }
+
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
         let start_timestamp = u64::from_env_var(START_TIMESTAMP)
             .map_err(|e| e.map(SlotCalcEnvError::StartTimestamp))?;

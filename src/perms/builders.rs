@@ -173,6 +173,12 @@ impl Builders {
 impl FromEnv for Builders {
     type Error = BuilderConfigError;
 
+    fn inventory() -> Vec<&'static str> {
+        let mut v = vec![BUILDERS];
+        v.extend(SlotAuthzConfig::inventory());
+        v
+    }
+
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
         let s = String::from_env_var(BUILDERS)
             .map_err(FromEnvErr::infallible_into::<BuilderConfigError>)?;

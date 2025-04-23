@@ -76,6 +76,12 @@ impl SlotAuthzConfig {
 impl FromEnv for SlotAuthzConfig {
     type Error = SlotAuthzConfigError;
 
+    fn inventory() -> Vec<&'static str> {
+        let mut v = vec![BLOCK_QUERY_CUTOFF, BLOCK_QUERY_START];
+        v.extend(SlotCalculator::inventory());
+        v
+    }
+
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
         let calc = SlotCalculator::from_env().map_err(FromEnvErr::from)?;
         let block_query_cutoff = u8::from_env_var(BLOCK_QUERY_CUTOFF)

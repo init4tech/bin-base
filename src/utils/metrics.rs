@@ -40,6 +40,10 @@ impl From<u16> for MetricsConfig {
 impl FromEnv for MetricsConfig {
     type Error = std::num::ParseIntError;
 
+    fn inventory() -> Vec<&'static str> {
+        vec![METRICS_PORT]
+    }
+
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
         match u16::from_env_var(METRICS_PORT).map(Self::from) {
             Ok(cfg) => Ok(cfg),

@@ -93,6 +93,9 @@ pub trait FromEnv: core::fmt::Debug + Sized + 'static {
     /// Error type produced when loading from the environment.
     type Error: core::error::Error;
 
+    /// Get the environment variable names for this type.
+    fn inventory() -> Vec<&'static str>;
+
     /// Load from the environment.
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>>;
 }
