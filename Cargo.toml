@@ -30,10 +30,12 @@ url = "2.5.4"
 metrics = "0.24.1"
 metrics-exporter-prometheus = "0.16.2"
 
+# Slot Calc
+chrono = "0.4.40"
+
 # Other
 thiserror = "2.0.11"
 alloy = { version = "0.12.6", optional = true, default-features = false, features = ["std"] }
-chrono = { version = "0.4.40", optional = true }
 
 [dev-dependencies]
 ajj = "0.3.1"
@@ -43,6 +45,6 @@ signal-hook = "0.3.17"
 tokio = { version = "1.43.0", features = ["macros"] }
 
 [features]
-default = ["alloy", "perms"]
+default = ["alloy"]
 alloy = ["dep:alloy"]
-perms = ["dep:chrono"]
+perms = []
