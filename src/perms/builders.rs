@@ -97,7 +97,7 @@ impl Builders {
     }
 
     /// Get the calculator instance.
-    pub fn calc(&self) -> SlotCalculator {
+    pub const fn calc(&self) -> SlotCalculator {
         self.config.calc()
     }
 
