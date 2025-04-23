@@ -43,6 +43,6 @@ signal-hook = "0.3.17"
 tokio = { version = "1.43.0", features = ["macros"] }
 
 [features]
-default = ["alloy"]
+default = ["alloy", "perms"]
 alloy = ["dep:alloy"]
 perms = ["dep:chrono"]

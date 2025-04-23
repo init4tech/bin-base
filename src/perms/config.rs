@@ -1,17 +1,21 @@
-use crate::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar};
+use crate::{
+    perms::SlotCalcEnvError,
+    utils::from_env::{FromEnv, FromEnvErr, FromEnvVar},
+};
 use core::num;
 
+use super::SlotCalculator;
+
 // Environment variable names for configuration
-const CHAIN_OFFSET: &str = "CHAIN_OFFSET";
-const BLOCK_QUERY_CUTOFF: &str = "BLOCK_QUERY_CUTOFF";
-const BLOCK_QUERY_START: &str = "BLOCK_QUERY_START";
+pub(crate) const BLOCK_QUERY_CUTOFF: &str = "BLOCK_QUERY_CUTOFF";
+pub(crate) const BLOCK_QUERY_START: &str = "BLOCK_QUERY_START";
 
 /// Possible errors when loading the slot authorization configuration.
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 pub enum SlotAuthzConfigError {
     /// Error reading environment variable.
     #[error("error reading chain offset: {0}")]
-    ChainOffset(num::ParseIntError),
+    Calculator(#[from] SlotCalcEnvError),
     /// Error reading block query cutoff.
     #[error("error reading block query cutoff: {0}")]
     BlockQueryCutoff(num::ParseIntError),
@@ -25,13 +29,9 @@ pub enum SlotAuthzConfigError {
 /// This struct is used to configure the slot authorization system
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SlotAuthzConfig {
-    /// The chain offset in seconds. The offset is the a block's timestamp %
-    /// its slot duration. This is used to calculate the slot number for a
-    /// given unix epoch timestamp.
-    ///
-    /// On loading from env, the number will be clamped between 0 and 11, as
-    /// the slot duration is 12 seconds.
-    chain_offset: u8,
+    /// A [`SlotCalculator`] instance that can be used to calculate the slot
+    /// number for a given timestamp.
+    calc: SlotCalculator,
     /// The block query cutoff time in seconds. This is the slot second after
     /// which requests will not be serviced. E.g. a value of 1 means that
     /// requests will not be serviced for the last second of any given slot.
@@ -50,18 +50,18 @@ pub struct SlotAuthzConfig {
 
 impl SlotAuthzConfig {
     /// Creates a new `SlotAuthzConfig` with the given parameters, clamping the
-    /// values between 0 and 11.
-    pub fn new(chain_offset: u8, block_query_cutoff: u8, block_query_start: u8) -> Self {
+    /// values between 0 and `calc.slot_duration()`.
+    pub fn new(calc: SlotCalculator, block_query_cutoff: u8, block_query_start: u8) -> Self {
         Self {
-            chain_offset: chain_offset.clamp(0, 11),
-            block_query_cutoff: block_query_cutoff.clamp(0, 11),
-            block_query_start: block_query_start.clamp(0, 11),
+            calc,
+            block_query_cutoff: block_query_cutoff.clamp(0, calc.slot_duration() as u8),
+            block_query_start: block_query_start.clamp(0, calc.slot_duration() as u8),
         }
     }
 
-    /// Get the chain offset in seconds.
-    pub const fn chain_offset(&self) -> u64 {
-        self.chain_offset as u64
+    /// Get the slot calculator instance.
+    pub const fn calc(&self) -> SlotCalculator {
+        self.calc
     }
 
     /// Get the block query cutoff time in seconds.
@@ -79,9 +79,7 @@ impl FromEnv for SlotAuthzConfig {
     type Error = SlotAuthzConfigError;
 
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
-        let chain_offset = u8::from_env_var(CHAIN_OFFSET)
-            .map_err(|e| e.map(SlotAuthzConfigError::ChainOffset))?
-            .clamp(0, 11);
+        let calc = SlotCalculator::from_env().map_err(FromEnvErr::from)?;
         let block_query_cutoff = u8::from_env_var(BLOCK_QUERY_CUTOFF)
             .map_err(|e| e.map(SlotAuthzConfigError::BlockQueryCutoff))?
             .clamp(0, 11);
@@ -90,7 +88,7 @@ impl FromEnv for SlotAuthzConfig {
             .clamp(0, 11);
 
         Ok(Self {
-            chain_offset,
+            calc,
             block_query_cutoff,
             block_query_start,
         })

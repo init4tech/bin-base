@@ -9,10 +9,13 @@
 //! For updating the currently permissioned builders,
 //! Simply update the included `builders.json` file with the new builders.
 
-use crate::utils::from_env::{FromEnvErr, FromEnvVar};
+use crate::{
+    perms::{SlotAuthzConfig, SlotAuthzConfigError, SlotCalculator},
+    utils::from_env::{FromEnv, FromEnvErr, FromEnvVar},
+};
 
-/// The start timestamp for the permissioned builders, in seconds.
-const EPOCH_START: u64 = 0;
+/// The builder list env var.
+const BUILDERS: &str = "PERMISSIONED_BUILDERS";
 
 /// Ethereum's slot time in seconds.
 pub const ETHEREUM_SLOT_TIME: u64 = 12;
@@ -22,7 +25,7 @@ fn now() -> u64 {
 }
 
 /// Possible errors when permissioning a builder.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, Clone, Copy, PartialEq, Eq)]
 pub enum BuilderPermissionError {
     /// Action attempt too early.
     #[error("action attempt too early")]
@@ -35,7 +38,11 @@ pub enum BuilderPermissionError {
     /// Builder not permissioned for this slot.
     #[error("builder not permissioned for this slot")]
     NotPermissioned,
+}
 
+/// Possible errors when loading the builder configuration.
+#[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
+pub enum BuilderConfigError {
     /// Error loading the environment variable.
     #[error(
         "failed to parse environment variable. Expected a comma-seperated list of UUIDs. Got: {input}"
@@ -46,6 +53,10 @@ pub enum BuilderPermissionError {
         /// The contents of the environment variable.
         input: String,
     },
+
+    /// Error loading the slot authorization configuration.
+    #[error(transparent)]
+    SlotAutzConfig(#[from] SlotAuthzConfigError),
 }
 
 /// An individual builder.
@@ -74,12 +85,20 @@ impl Builder {
 pub struct Builders {
     /// The list of builders.
     pub builders: Vec<Builder>,
+
+    /// The slot authorization configuration.
+    config: SlotAuthzConfig,
 }
 
 impl Builders {
     /// Create a new Builders struct.
-    pub const fn new(builders: Vec<Builder>) -> Self {
-        Self { builders }
+    pub const fn new(builders: Vec<Builder>, config: SlotAuthzConfig) -> Self {
+        Self { builders, config }
+    }
+
+    /// Get the calculator instance.
+    pub fn calc(&self) -> SlotCalculator {
+        self.config.calc()
     }
 
     /// Get the builder at a specific index.
@@ -99,7 +118,7 @@ impl Builders {
     /// Get the index of the builder that is allowed to sign a block for a
     /// particular timestamp.
     pub fn index(&self, timestamp: u64) -> u64 {
-        ((timestamp - EPOCH_START) / ETHEREUM_SLOT_TIME) % self.builders.len() as u64
+        self.config.calc().calculate_slot(timestamp) % self.builders.len() as u64
     }
 
     /// Get the index of the builder that is allowed to sign a block at the
@@ -117,23 +136,18 @@ impl Builders {
     /// This is based on the current timestamp and the builder's sub. It's a
     /// round-robin design, where each builder is allowed to perform an action
     /// at a specific slot, and what builder is allowed changes with each slot.
-    pub fn is_builder_permissioned(
-        &self,
-        config: &crate::perms::SlotAuthzConfig,
-        sub: &str,
-    ) -> Result<(), BuilderPermissionError> {
+    pub fn is_builder_permissioned(&self, sub: &str) -> Result<(), BuilderPermissionError> {
         // Get the current timestamp.
-        let curr_timestamp = now();
 
         // Calculate the current slot time, which is a number between 0 and 11.
-        let current_slot_time = (curr_timestamp - config.chain_offset()) % ETHEREUM_SLOT_TIME;
+        let current_slot_time = self.calc().current_timepoint_within_slot();
 
         // Builders can only perform actions between the configured start and cutoff times, to prevent any timing games.
-        if current_slot_time < config.block_query_start() {
+        if current_slot_time < self.config.block_query_start() {
             tracing::debug!("Action attempt too early");
             return Err(BuilderPermissionError::ActionAttemptTooEarly);
         }
-        if current_slot_time > config.block_query_cutoff() {
+        if current_slot_time > self.config.block_query_cutoff() {
             tracing::debug!("Action attempt too late");
             return Err(BuilderPermissionError::ActionAttemptTooLate);
         }
@@ -151,37 +165,52 @@ impl Builders {
     }
 }
 
-impl FromIterator<Builder> for Builders {
-    fn from_iter<T: IntoIterator<Item = Builder>>(iter: T) -> Self {
-        Self::new(iter.into_iter().collect())
-    }
-}
+impl FromEnv for Builders {
+    type Error = BuilderConfigError;
 
-impl FromEnvVar for Builders {
-    type Error = BuilderPermissionError;
+    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+        let s = String::from_env_var(BUILDERS)
+            .map_err(FromEnvErr::infallible_into::<BuilderConfigError>)?;
+        let builders = s.split(',').map(Builder::new).collect();
 
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
-        let s = String::from_env_var(env_var)
-            .map_err(FromEnvErr::infallible_into::<BuilderPermissionError>)?;
+        let config = SlotAuthzConfig::from_env().map_err(FromEnvErr::from)?;
 
-        Ok(s.split(',').map(Builder::new).collect())
+        Ok(Self { builders, config })
     }
 }
 
 #[cfg(test)]
 mod test {
+
     use super::*;
+    use crate::perms;
 
     #[test]
     fn load_builders() {
-        unsafe { std::env::set_var("TEST", "0,1,2,3,4,5") };
+        unsafe {
+            std::env::set_var(BUILDERS, "0,1,2,3,4,5");
 
-        let builders = Builders::from_env_var("TEST").unwrap();
+            std::env::set_var(perms::calc::START_TIMESTAMP, "1");
+            std::env::set_var(perms::calc::SLOT_OFFSET, "0");
+            std::env::set_var(perms::calc::SLOT_DURATION, "12");
+
+            std::env::set_var(perms::config::BLOCK_QUERY_START, "1");
+            std::env::set_var(perms::config::BLOCK_QUERY_CUTOFF, "11");
+        };
+
+        let builders = Builders::from_env().unwrap();
         assert_eq!(builders.builder_at(0).sub, "0");
         assert_eq!(builders.builder_at(1).sub, "1");
         assert_eq!(builders.builder_at(2).sub, "2");
         assert_eq!(builders.builder_at(3).sub, "3");
         assert_eq!(builders.builder_at(4).sub, "4");
         assert_eq!(builders.builder_at(5).sub, "5");
+
+        assert_eq!(builders.calc().slot_offset(), 0);
+        assert_eq!(builders.calc().slot_duration(), 12);
+        assert_eq!(builders.calc().start_timestamp(), 1);
+
+        assert_eq!(builders.config.block_query_start(), 1);
+        assert_eq!(builders.config.block_query_cutoff(), 11);
     }
 }
