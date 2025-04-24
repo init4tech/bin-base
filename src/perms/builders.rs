@@ -1,13 +1,10 @@
 //! #Signet Quincey builder permissioning system.
 //!
-//! The permissioning system decides which builder can perform a certain action at a given time.
-//! The permissioning system uses a simple round-robin design, where each builder is allowed to perform an action at a specific slot.
-//! Builders are permissioned based on their sub, which is present in the JWT token they acquire from our OAuth service.
-//! They are rotated every 12 seconds, which is Ethereum's slot time.
-//! As the logic is timestamp based, the system is deterministic.
-//!
-//! For updating the currently permissioned builders,
-//! Simply update the included `builders.json` file with the new builders.
+//! The permissioning system decides which builder can perform a certain action
+//! at a given time. The permissioning system uses a simple round-robin design,
+//! where each builder is allowed to perform an action at a specific slot.
+//! Builders are permissioned based on their sub, which is present in the JWT
+//! token they acquire from our OAuth service.
 
 use crate::{
     perms::{SlotAuthzConfig, SlotAuthzConfigError},
@@ -84,6 +81,9 @@ impl Builder {
 #[derive(Clone, Debug)]
 pub struct Builders {
     /// The list of builders.
+    ///
+    /// This is configured in the environment variable `PERMISSIONED_BUILDERS`,
+    /// as a list of comma-separated UUIDs.
     pub builders: Vec<Builder>,
 
     /// The slot authorization configuration.
