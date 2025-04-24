@@ -24,7 +24,7 @@ pub enum SlotCalcEnvError {
 
 /// A slot calculator, which can calculate the slot number for a given
 /// timestamp.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Deserialize)]
 pub struct SlotCalculator {
     /// The start timestamp.
     start_timestamp: u64,

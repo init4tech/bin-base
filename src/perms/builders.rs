@@ -13,6 +13,7 @@ use crate::{
         from_env::{EnvItemInfo, FromEnv, FromEnvErr, FromEnvVar},
     },
 };
+use serde::{Deserialize, Deserializer};
 
 /// The builder list env var.
 const BUILDERS: &str = "PERMISSIONED_BUILDERS";
@@ -57,10 +58,17 @@ pub enum BuilderConfigError {
 }
 
 /// An individual builder.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(from = "String")]
 pub struct Builder {
     /// The sub of the builder.
     pub sub: String,
+}
+
+impl From<String> for Builder {
+    fn from(sub: String) -> Self {
+        Self { sub }
+    }
 }
 
 impl Builder {
@@ -78,17 +86,30 @@ impl Builder {
 }
 
 /// Builders struct to keep track of the builders that are allowed to perform actions.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Deserialize)]
 pub struct Builders {
     /// The list of builders.
     ///
     /// This is configured in the environment variable `PERMISSIONED_BUILDERS`,
     /// as a list of comma-separated UUIDs.
+    #[serde(deserialize_with = "deser_builders")]
     pub builders: Vec<Builder>,
 
     /// The slot authorization configuration. See [`SlotAuthzConfig`] for more
     /// information and env vars
     config: SlotAuthzConfig,
+}
+
+fn deser_builders<'de, D>(deser: D) -> Result<Vec<Builder>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deser)?;
+    Ok(split_builders(&s))
+}
+
+fn split_builders(s: &str) -> Vec<Builder> {
+    s.split(',').map(Builder::new).collect()
 }
 
 impl Builders {
@@ -188,7 +209,7 @@ impl FromEnv for Builders {
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
         let s = String::from_env_var(BUILDERS)
             .map_err(FromEnvErr::infallible_into::<BuilderConfigError>)?;
-        let builders = s.split(',').map(Builder::new).collect();
+        let builders = split_builders(&s);
 
         let config = SlotAuthzConfig::from_env().map_err(FromEnvErr::from)?;
 

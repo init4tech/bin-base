@@ -100,6 +100,7 @@ pub struct OtelConfig {
 
     /// Defaults to DEBUG.
     pub level: tracing::Level,
+
     /// Defaults to 1 second. Specified in Milliseconds.
     pub timeout: Duration,
 
