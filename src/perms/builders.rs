@@ -86,7 +86,8 @@ pub struct Builders {
     /// as a list of comma-separated UUIDs.
     pub builders: Vec<Builder>,
 
-    /// The slot authorization configuration.
+    /// The slot authorization configuration. See [`SlotAuthzConfig`] for more
+    /// information and env vars
     config: SlotAuthzConfig,
 }
 
