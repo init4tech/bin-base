@@ -115,6 +115,10 @@ pub trait FromEnv: core::fmt::Debug + Sized + 'static {
     fn inventory() -> Vec<&'static EnvItemInfo>;
 
     /// Get a list of missing environment variables.
+    ///
+    /// This will check all environment variables in the inventory, and return
+    /// a list of those that are non-optional and missing. This is useful for
+    /// reporting missing environment variables.
     fn check_inventory() -> Result<(), Vec<&'static EnvItemInfo>> {
         let mut missing = Vec::new();
         for var in Self::inventory() {

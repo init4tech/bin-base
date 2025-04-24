@@ -45,7 +45,7 @@ impl FromEnv for MetricsConfig {
     fn inventory() -> Vec<&'static EnvItemInfo> {
         vec![&EnvItemInfo {
             var: METRICS_PORT,
-            description: "Port on which to serve metrics",
+            description: "Port on which to serve metrics, u16, defaults to 9000",
             optional: true,
         }]
     }

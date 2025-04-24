@@ -114,12 +114,13 @@ impl FromEnv for OtelConfig {
         vec![
             &EnvItemInfo {
                 var: OTEL_ENDPOINT,
-                description: "OTLP endpoint to send traces to",
+                description:
+                    "OTLP endpoint to send traces to, a url. If missing, disables OTLP exporting.",
                 optional: true,
             },
             &EnvItemInfo {
                 var: OTEL_LEVEL,
-                description: "OTLP level to export",
+                description: "OTLP level to export, defaults to DEBUG. Permissible values are: TRACE, DEBUG, INFO, WARN, ERROR, OFF",
                 optional: true,
             },
             &EnvItemInfo {
@@ -129,7 +130,7 @@ impl FromEnv for OtelConfig {
             },
             &EnvItemInfo {
                 var: OTEL_ENVIRONMENT,
-                description: "OTLP environment name",
+                description: "OTLP environment name, a string",
                 optional: true,
             },
         ]

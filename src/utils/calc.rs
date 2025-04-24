@@ -131,17 +131,17 @@ impl FromEnv for SlotCalculator {
         vec![
             &EnvItemInfo {
                 var: START_TIMESTAMP,
-                description: "The start timestamp of the chain",
+                description: "The start timestamp of the chain in seconds",
                 optional: false,
             },
             &EnvItemInfo {
                 var: SLOT_OFFSET,
-                description: "The slot offset of the chain",
+                description: "The slot offset of the chain in seconds",
                 optional: false,
             },
             &EnvItemInfo {
                 var: SLOT_DURATION,
-                description: "The slot duration of the chain",
+                description: "The slot duration of the chain in seconds",
                 optional: false,
             },
         ]
