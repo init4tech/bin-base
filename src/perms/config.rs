@@ -25,7 +25,7 @@ pub enum SlotAuthzConfigError {
 /// Configuration object that describes the slot time settings for a chain.
 ///
 /// This struct is used to configure the slot authorization system
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
 pub struct SlotAuthzConfig {
     /// A [`SlotCalculator`] instance that can be used to calculate the slot
     /// number for a given timestamp.

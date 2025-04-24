@@ -11,8 +11,9 @@ const METRICS_PORT: &str = "METRICS_PORT";
 /// Uses the following environment variables:
 /// - `METRICS_PORT` - optional. Defaults to 9000 if missing or unparseable.
 ///   The port to bind the metrics server to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
 #[non_exhaustive]
+#[serde(from = "Option<u16>")]
 pub struct MetricsConfig {
     /// `METRICS_PORT` - The port on which to bind the metrics server. Defaults
     /// to `9000` if missing or unparseable.
