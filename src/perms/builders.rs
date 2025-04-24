@@ -109,7 +109,7 @@ where
 }
 
 fn split_builders(s: &str) -> Vec<Builder> {
-    s.split(',').map(|s| Builder::new(s)).collect()
+    s.split(',').map(Builder::new).collect()
 }
 
 impl Builders {
