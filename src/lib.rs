@@ -12,7 +12,9 @@
 #![deny(unused_must_use, rust_2018_idioms)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-use utils::otlp::OtelGuard;
+#[cfg(feature = "perms")]
+/// Permissioning and authorization utilities for Signet builders.
+pub mod perms;
 
 /// Signet utilities.
 pub mod utils {
@@ -30,6 +32,10 @@ pub mod utils {
 
     /// Tracing utilities.
     pub mod tracing;
+
+    /// Slot calculator for determining the current slot and timepoint within a
+    /// slot.
+    pub mod calc;
 }
 
 /// Re-exports of common dependencies.
@@ -64,7 +70,7 @@ pub mod deps {
 ///
 /// [`init_tracing`]: utils::tracing::init_tracing
 /// [`init_metrics`]: utils::metrics::init_metrics
-pub fn init4() -> Option<OtelGuard> {
+pub fn init4() -> Option<utils::otlp::OtelGuard> {
     let guard = utils::tracing::init_tracing();
     utils::metrics::init_metrics();
     guard
