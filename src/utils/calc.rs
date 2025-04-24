@@ -63,6 +63,15 @@ impl SlotCalculator {
         }
     }
 
+    /// Creates a new slot calculator for Pecorino host network.
+    pub const fn pecorino_host() -> Self {
+        Self {
+            start_timestamp: 1740681556,
+            slot_offset: 0,
+            slot_duration: 12,
+        }
+    }
+
     /// Creates a new slot calculator for Ethereum mainnet.
     pub const fn mainnet() -> Self {
         Self {
