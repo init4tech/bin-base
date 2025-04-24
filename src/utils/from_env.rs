@@ -1,5 +1,18 @@
 use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 
+/// Details about an environment variable. This is used to generate
+/// documentation for the environment variables and by the [`FromEnv`] trait to
+/// check if necessary environment variables are present.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EnvItemInfo {
+    /// The environment variable name.
+    pub var: &'static str,
+    /// A description of the environment variable function in the CFG.
+    pub description: &'static str,
+    /// Whether the environment variable is optional or not.
+    pub optional: bool,
+}
+
 /// Error type for loading from the environment. See the [`FromEnv`] trait for
 /// more information.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -93,8 +106,28 @@ pub trait FromEnv: core::fmt::Debug + Sized + 'static {
     /// Error type produced when loading from the environment.
     type Error: core::error::Error;
 
-    /// Get the environment variable names for this type.
-    fn inventory() -> Vec<&'static str>;
+    /// Get the required environment variable names for this type.
+    ///
+    /// ## Note
+    ///
+    /// This MUST include the environment variable names for all fields in the
+    /// struct, including optional vars.
+    fn inventory() -> Vec<&'static EnvItemInfo>;
+
+    /// Get a list of missing environment variables.
+    fn check_inventory() -> Result<(), Vec<&'static EnvItemInfo>> {
+        let mut missing = Vec::new();
+        for var in Self::inventory() {
+            if std::env::var(var.var).is_err() && !var.optional {
+                missing.push(var);
+            }
+        }
+        if missing.is_empty() {
+            Ok(())
+        } else {
+            Err(missing)
+        }
+    }
 
     /// Load from the environment.
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>>;

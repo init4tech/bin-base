@@ -1,4 +1,4 @@
-use crate::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar};
+use crate::utils::from_env::{EnvItemInfo, FromEnv, FromEnvErr, FromEnvVar};
 use opentelemetry::{trace::TracerProvider, KeyValue};
 use opentelemetry_sdk::trace::SdkTracerProvider;
 use opentelemetry_sdk::Resource;
@@ -110,8 +110,29 @@ pub struct OtelConfig {
 impl FromEnv for OtelConfig {
     type Error = url::ParseError;
 
-    fn inventory() -> Vec<&'static str> {
-        vec![OTEL_ENDPOINT, OTEL_LEVEL, OTEL_TIMEOUT, OTEL_ENVIRONMENT]
+    fn inventory() -> Vec<&'static EnvItemInfo> {
+        vec![
+            &EnvItemInfo {
+                var: OTEL_ENDPOINT,
+                description: "OTLP endpoint to send traces to",
+                optional: true,
+            },
+            &EnvItemInfo {
+                var: OTEL_LEVEL,
+                description: "OTLP level to export",
+                optional: true,
+            },
+            &EnvItemInfo {
+                var: OTEL_TIMEOUT,
+                description: "OTLP timeout in milliseconds",
+                optional: true,
+            },
+            &EnvItemInfo {
+                var: OTEL_ENVIRONMENT,
+                description: "OTLP environment name",
+                optional: true,
+            },
+        ]
     }
 
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
