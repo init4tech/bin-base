@@ -1,0 +1,17 @@
+[package]
+name = "from-env-macro"
+description = "The `FromEnv` derive macro"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+heck = "0.5.0"
+proc-macro2 = "1.0.95"
+quote = "1.0.40"
+syn = { version = "2.0.100", features = ["full", "parsing"] }
+
+[lib]
+proc-macro = true
+
+[dev-dependencies]
+init4-bin-base = { path = ".." }
