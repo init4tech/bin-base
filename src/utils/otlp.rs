@@ -1,4 +1,4 @@
-use crate::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar};
+use crate::utils::from_env::{EnvItemInfo, FromEnv, FromEnvErr, FromEnvVar};
 use opentelemetry::{trace::TracerProvider, KeyValue};
 use opentelemetry_sdk::trace::SdkTracerProvider;
 use opentelemetry_sdk::Resource;
@@ -109,6 +109,32 @@ pub struct OtelConfig {
 
 impl FromEnv for OtelConfig {
     type Error = url::ParseError;
+
+    fn inventory() -> Vec<&'static EnvItemInfo> {
+        vec![
+            &EnvItemInfo {
+                var: OTEL_ENDPOINT,
+                description:
+                    "OTLP endpoint to send traces to, a url. If missing, disables OTLP exporting.",
+                optional: true,
+            },
+            &EnvItemInfo {
+                var: OTEL_LEVEL,
+                description: "OTLP level to export, defaults to DEBUG. Permissible values are: TRACE, DEBUG, INFO, WARN, ERROR, OFF",
+                optional: true,
+            },
+            &EnvItemInfo {
+                var: OTEL_TIMEOUT,
+                description: "OTLP timeout in milliseconds",
+                optional: true,
+            },
+            &EnvItemInfo {
+                var: OTEL_ENVIRONMENT,
+                description: "OTLP environment name, a string",
+                optional: true,
+            },
+        ]
+    }
 
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
         // load endpoint from env. ignore empty values (shortcut return None), parse, and print the error if any using inspect_err

@@ -10,7 +10,7 @@ use crate::{
     perms::{SlotAuthzConfig, SlotAuthzConfigError},
     utils::{
         calc::SlotCalculator,
-        from_env::{FromEnv, FromEnvErr, FromEnvVar},
+        from_env::{EnvItemInfo, FromEnv, FromEnvErr, FromEnvVar},
     },
 };
 
@@ -172,6 +172,18 @@ impl Builders {
 
 impl FromEnv for Builders {
     type Error = BuilderConfigError;
+
+    fn inventory() -> Vec<&'static EnvItemInfo> {
+        let mut v = vec![
+            &EnvItemInfo {
+                var: BUILDERS,
+                description: "A comma-separated list of UUIDs representing the builders that are allowed to perform actions.",
+                optional: false,
+            },
+        ];
+        v.extend(SlotAuthzConfig::inventory());
+        v
+    }
 
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
         let s = String::from_env_var(BUILDERS)

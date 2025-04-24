@@ -1,6 +1,8 @@
 use crate::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar};
 use core::num;
 
+use super::from_env::EnvItemInfo;
+
 // Env vars
 pub(crate) const START_TIMESTAMP: &str = "START_TIMESTAMP";
 pub(crate) const SLOT_OFFSET: &str = "SLOT_OFFSET";
@@ -124,6 +126,26 @@ impl SlotCalculator {
 
 impl FromEnv for SlotCalculator {
     type Error = SlotCalcEnvError;
+
+    fn inventory() -> Vec<&'static EnvItemInfo> {
+        vec![
+            &EnvItemInfo {
+                var: START_TIMESTAMP,
+                description: "The start timestamp of the chain in seconds",
+                optional: false,
+            },
+            &EnvItemInfo {
+                var: SLOT_OFFSET,
+                description: "The slot offset of the chain in seconds",
+                optional: false,
+            },
+            &EnvItemInfo {
+                var: SLOT_DURATION,
+                description: "The slot duration of the chain in seconds",
+                optional: false,
+            },
+        ]
+    }
 
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
         let start_timestamp = u64::from_env_var(START_TIMESTAMP)

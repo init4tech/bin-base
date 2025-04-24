@@ -1,6 +1,8 @@
 use crate::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar};
 use metrics_exporter_prometheus::PrometheusBuilder;
 
+use super::from_env::EnvItemInfo;
+
 /// Metrics port env var
 const METRICS_PORT: &str = "METRICS_PORT";
 
@@ -39,6 +41,14 @@ impl From<u16> for MetricsConfig {
 
 impl FromEnv for MetricsConfig {
     type Error = std::num::ParseIntError;
+
+    fn inventory() -> Vec<&'static EnvItemInfo> {
+        vec![&EnvItemInfo {
+            var: METRICS_PORT,
+            description: "Port on which to serve metrics, u16, defaults to 9000",
+            optional: true,
+        }]
+    }
 
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
         match u16::from_env_var(METRICS_PORT).map(Self::from) {
