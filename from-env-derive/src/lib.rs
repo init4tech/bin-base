@@ -22,6 +22,13 @@ pub fn derive(input: Ts) -> Ts {
         unreachable!()
     };
 
+    let crate_name = input
+        .attrs
+        .iter()
+        .find(|attr| attr.path().is_ident("from_env"))
+        .and_then(|attr| attr.parse_args::<syn::Ident>().ok())
+        .unwrap_or(syn::Ident::new("init4_bin_base", input.ident.span()));
+
     let tuple_like = matches!(data.fields, syn::Fields::Unnamed(_));
 
     if matches!(data.fields, syn::Fields::Unit) {
@@ -48,16 +55,19 @@ pub fn derive(input: Ts) -> Ts {
     let input = Input {
         ident: input.ident.clone(),
         fields,
+        crate_name,
         tuple_like,
     };
 
-    expand_mod(&input).into()
+    input.expand_mod().into()
 }
 
 struct Input {
     ident: syn::Ident,
 
     fields: Vec<Field>,
+
+    crate_name: syn::Ident,
 
     tuple_like: bool,
 }
@@ -212,20 +222,21 @@ impl Input {
             }
         }
     }
-}
 
-fn expand_mod(input: &Input) -> TokenStream {
-    // let expanded_impl = expand_impl(input);
-    let expanded_error = input.expand_error();
-    let expanded_impl = input.expand_impl();
+    fn expand_mod(&self) -> TokenStream {
+        // let expanded_impl = expand_impl(input);
+        let expanded_error = self.expand_error();
+        let expanded_impl = self.expand_impl();
+        let crate_name = &self.crate_name;
 
-    quote! {
-        const _: () = {
-            use ::init4_bin_base::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar, EnvItemInfo};
+        quote! {
+            const _: () = {
+                use ::#crate_name::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar, EnvItemInfo};
 
-            #expanded_impl
+                #expanded_impl
 
-            #expanded_error
-        };
+                #expanded_error
+            };
+        }
     }
 }
