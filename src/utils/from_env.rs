@@ -274,19 +274,19 @@ impl FromEnvVar for std::time::Duration {
 
 impl<T> FromEnvVar for Vec<T>
 where
-    T: FromEnvVar,
+    T: From<String> + core::fmt::Debug + 'static,
 {
-    type Error = T::Error;
+    type Error = Infallible;
 
     fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
         let s = std::env::var(env_var).map_err(|e| FromEnvErr::env_err(env_var, e))?;
         if s.is_empty() {
             return Ok(vec![]);
         }
-        s.split(',')
-            .map(|s| T::from_env_var(s))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(FromEnvErr::from)
+        Ok(s.split(',')
+            .map(str::to_string)
+            .map(Into::into)
+            .collect::<Vec<_>>())
     }
 }
 
