@@ -1,7 +1,7 @@
 use proc_macro::TokenStream as Ts;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, parse_macro_input};
+use syn::{parse_macro_input, DeriveInput};
 
 mod field;
 use field::Field;
@@ -32,13 +32,22 @@ pub fn derive(input: Ts) -> Ts {
         .to_compile_error();
     }
 
+    let fields = match &data.fields {
+        syn::Fields::Named(fields) => fields.named.iter().map(Field::try_from),
+        syn::Fields::Unnamed(fields) => fields.unnamed.iter().map(Field::try_from),
+        syn::Fields::Unit => unreachable!(),
+    };
+
+    let fields = match fields.collect::<Result<Vec<_>, _>>() {
+        Ok(fields) => fields,
+        Err(err) => {
+            return err.to_compile_error().into();
+        }
+    };
+
     let input = Input {
         ident: input.ident.clone(),
-        fields: match &data.fields {
-            syn::Fields::Named(fields) => fields.named.iter().map(Field::from).collect(),
-            syn::Fields::Unnamed(fields) => fields.unnamed.iter().map(Field::from).collect(),
-            syn::Fields::Unit => unreachable!(),
-        },
+        fields,
         tuple_like,
     };
 

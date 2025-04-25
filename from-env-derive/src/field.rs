@@ -1,7 +1,7 @@
 use heck::ToPascalCase;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Ident, LitStr, spanned::Spanned};
+use syn::{spanned::Spanned, Ident, LitStr};
 
 /// A parsed Field of a struct
 pub(crate) struct Field {
@@ -18,8 +18,10 @@ pub(crate) struct Field {
     span: proc_macro2::Span,
 }
 
-impl From<&syn::Field> for Field {
-    fn from(field: &syn::Field) -> Self {
+impl TryFrom<&syn::Field> for Field {
+    type Error = syn::Error;
+
+    fn try_from(field: &syn::Field) -> Result<Self, syn::Error> {
         let mut optional = false;
         let mut env_var = None;
         let mut infallible = false;
@@ -50,15 +52,18 @@ impl From<&syn::Field> for Field {
                 });
             });
 
-        // check if the from_env_attrs_field contains either
-        // - `from_env(var = "FIELD_NAME")` or
-        // - `from_env(optional)`
+        if desc.is_none() {
+            return Err(syn::Error::new(
+                field.span(),
+                "Missing description for field. Use `#[from_env(desc = \"DESC\")]`",
+            ));
+        }
 
         let field_type = field.ty.clone();
         let field_name = field.ident.clone();
         let span = field.span();
 
-        Field {
+        Ok(Field {
             env_var,
             field_name,
             field_type,
@@ -72,7 +77,7 @@ impl From<&syn::Field> for Field {
                 .cloned()
                 .collect(),
             span,
-        }
+        })
     }
 }
 
