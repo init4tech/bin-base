@@ -1,5 +1,5 @@
 [package]
-name = "from-env-macro"
+name = "from-env-derive"
 description = "The `FromEnv` derive macro"
 version = "0.1.0"
 edition = "2024"

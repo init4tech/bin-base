@@ -5,7 +5,7 @@ pub struct FromEnvTest {
     /// This is a guy named tony
     /// He is cool
     /// He is a good guy
-    #[from_env(var = "FIELD1")]
+    #[from_env(var = "FIELD1", desc = "Tony is cool and a u8")]
     pub tony: u8,
 
     /// This guy is named charles
