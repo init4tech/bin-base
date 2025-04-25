@@ -1,0 +1,222 @@
+use proc_macro::TokenStream as Ts;
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::{DeriveInput, parse_macro_input};
+
+mod field;
+use field::Field;
+
+#[proc_macro_derive(FromEnv, attributes(from_env))]
+pub fn derive(input: Ts) -> Ts {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    if !matches!(input.data, syn::Data::Struct(_)) {
+        syn::Error::new(
+            input.ident.span(),
+            "FromEnv can only be derived for structs",
+        )
+        .to_compile_error();
+    };
+
+    let syn::Data::Struct(data) = &input.data else {
+        unreachable!()
+    };
+
+    let tuple_like = matches!(data.fields, syn::Fields::Unnamed(_));
+
+    if matches!(data.fields, syn::Fields::Unit) {
+        syn::Error::new(
+            input.ident.span(),
+            "FromEnv can only be derived for structs with fields",
+        )
+        .to_compile_error();
+    }
+
+    let input = Input {
+        ident: input.ident.clone(),
+        fields: match &data.fields {
+            syn::Fields::Named(fields) => fields.named.iter().map(Field::from).collect(),
+            syn::Fields::Unnamed(fields) => fields.unnamed.iter().map(Field::from).collect(),
+            syn::Fields::Unit => unreachable!(),
+        },
+        tuple_like,
+    };
+
+    expand_mod(&input).into()
+}
+
+struct Input {
+    ident: syn::Ident,
+
+    fields: Vec<Field>,
+
+    tuple_like: bool,
+}
+
+impl Input {
+    fn field_names(&self) -> Vec<syn::Ident> {
+        self.fields
+            .iter()
+            .enumerate()
+            .map(|(idx, field)| field.field_name(idx))
+            .collect()
+    }
+
+    fn instantiate_struct(&self) -> TokenStream {
+        let struct_name = &self.ident;
+        let field_names = self.field_names();
+
+        if self.tuple_like {
+            return quote! {
+                #struct_name(
+                    #(#field_names),*
+                )
+            };
+        }
+
+        quote! {
+            #struct_name {
+                #(#field_names),*
+            }
+        }
+    }
+
+    fn error_ident(&self) -> syn::Ident {
+        let error_name = format!("{}Error", self.ident);
+        syn::parse_str::<syn::Ident>(&error_name)
+            .map_err(|_| {
+                syn::Error::new(self.ident.span(), "Failed to parse error ident").to_compile_error()
+            })
+            .unwrap()
+    }
+
+    fn error_variants(&self) -> Vec<TokenStream> {
+        self.fields
+            .iter()
+            .enumerate()
+            .map(|(idx, field)| field.expand_enum_variant(idx))
+            .collect()
+    }
+
+    fn error_variant_displays(&self) -> Vec<TokenStream> {
+        self.fields
+            .iter()
+            .enumerate()
+            .map(|(idx, field)| field.expand_variant_display(idx))
+            .collect::<Vec<_>>()
+    }
+
+    fn expand_variant_sources(&self) -> Vec<TokenStream> {
+        self.fields
+            .iter()
+            .enumerate()
+            .map(|(idx, field)| field.expand_variant_source(idx))
+            .collect::<Vec<_>>()
+    }
+
+    fn item_from_envs(&self) -> Vec<TokenStream> {
+        let error_ident = self.error_ident();
+        self.fields
+            .iter()
+            .enumerate()
+            .map(|(idx, field)| field.expand_item_from_env(&error_ident, idx))
+            .collect()
+    }
+
+    fn expand_error(&self) -> TokenStream {
+        let error_ident = self.error_ident();
+        let struct_name_str = &self.ident.to_string();
+
+        let error_variants = self.error_variants();
+        let error_variant_displays = self.error_variant_displays();
+        let error_variant_sources = self.expand_variant_sources();
+
+        quote! {
+            #[doc = "Generated error type for [`FromEnv`] for"]
+            #[doc = #struct_name_str]
+            #[doc = ". This error type is used to represent errors that occur when trying to create an instance of the struct from environment variables."]
+            #[derive(Debug, PartialEq, Eq)]
+            pub enum #error_ident {
+                #(#error_variants),*
+            }
+
+            #[automatically_derived]
+            impl ::core::fmt::Display for #error_ident {
+                fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                    match self {
+                        #(
+                            #error_variant_displays,
+                        )*
+                    }
+                }
+            }
+
+            #[automatically_derived]
+            impl ::core::error::Error for #error_ident {
+                fn source(&self) -> Option<&(dyn ::core::error::Error + 'static)> {
+                    match self {
+                        #(
+                            #error_variant_sources,
+                        )*
+                    }
+                }
+            }
+        }
+    }
+
+    fn env_item_info(&self) -> Vec<TokenStream> {
+        self.fields
+            .iter()
+            .map(|field| field.expand_env_item_info())
+            .collect()
+    }
+
+    fn expand_impl(&self) -> TokenStream {
+        let env_item_info = self.env_item_info();
+        let struct_name = &self.ident;
+        let error_ident = self.error_ident();
+
+        let item_from_envs = self.item_from_envs();
+        let struct_instantiation = self.instantiate_struct();
+
+        quote! {
+
+            #[automatically_derived]
+            impl FromEnv for #struct_name {
+                type Error = #error_ident;
+
+                fn inventory() -> ::std::vec::Vec<&'static EnvItemInfo> {
+                    let mut items = ::std::vec::Vec::new();
+                    #(
+                        #env_item_info
+                    )*
+                    items
+                }
+
+                fn from_env() -> ::std::result::Result<Self, FromEnvErr<Self::Error>> {
+                    #(
+                        #item_from_envs
+                    )*
+
+                    ::std::result::Result::Ok(#struct_instantiation)
+                }
+            }
+        }
+    }
+}
+
+fn expand_mod(input: &Input) -> TokenStream {
+    // let expanded_impl = expand_impl(input);
+    let expanded_error = input.expand_error();
+    let expanded_impl = input.expand_impl();
+
+    quote! {
+        const _: () = {
+            use ::init4_bin_base::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar, EnvItemInfo};
+
+            #expanded_impl
+
+            #expanded_error
+        };
+    }
+}
