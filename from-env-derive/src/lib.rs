@@ -59,9 +59,7 @@ pub fn derive(input: Ts) -> Ts {
         tuple_like,
     };
 
-    let ts = input.expand_mod().into();
-    eprintln!("Generated code: {}", ts);
-    ts
+    input.expand_mod().into()
 }
 
 struct Input {
