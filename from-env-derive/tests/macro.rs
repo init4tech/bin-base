@@ -33,7 +33,6 @@ pub struct Nested {
     pub ffffff: String,
 
     /// Hi
-    #[from_env(desc = "This is a guy named from_env_test")]
     pub from_env_test: FromEnvTest,
 }
 

@@ -52,7 +52,7 @@ impl TryFrom<&syn::Field> for Field {
                 });
             });
 
-        if desc.is_none() {
+        if desc.is_none() && env_var.is_some() {
             return Err(syn::Error::new(
                 field.span(),
                 "Missing description for field. Use `#[from_env(desc = \"DESC\")]`",

@@ -26,8 +26,8 @@ pub fn derive(input: Ts) -> Ts {
         .attrs
         .iter()
         .find(|attr| attr.path().is_ident("from_env"))
-        .and_then(|attr| attr.parse_args::<syn::Ident>().ok())
-        .unwrap_or(syn::Ident::new("init4_bin_base", input.ident.span()));
+        .and_then(|attr| attr.parse_args::<syn::Path>().ok())
+        .unwrap_or_else(|| syn::parse_str::<syn::Path>("::init4_bin_base").unwrap());
 
     let tuple_like = matches!(data.fields, syn::Fields::Unnamed(_));
 
@@ -59,7 +59,9 @@ pub fn derive(input: Ts) -> Ts {
         tuple_like,
     };
 
-    input.expand_mod().into()
+    let ts = input.expand_mod().into();
+    eprintln!("Generated code: {}", ts);
+    ts
 }
 
 struct Input {
@@ -67,7 +69,7 @@ struct Input {
 
     fields: Vec<Field>,
 
-    crate_name: syn::Ident,
+    crate_name: syn::Path,
 
     tuple_like: bool,
 }
@@ -154,7 +156,7 @@ impl Input {
             #[doc = "Generated error type for [`FromEnv`] for"]
             #[doc = #struct_name_str]
             #[doc = ". This error type is used to represent errors that occur when trying to create an instance of the struct from environment variables."]
-            #[derive(Debug, PartialEq, Eq)]
+            #[derive(Debug, PartialEq, Eq, Clone)]
             pub enum #error_ident {
                 #(#error_variants),*
             }
@@ -228,15 +230,21 @@ impl Input {
         let expanded_error = self.expand_error();
         let expanded_impl = self.expand_impl();
         let crate_name = &self.crate_name;
+        let error_ident = self.error_ident();
+
+        let mod_ident =
+            syn::parse_str::<syn::Ident>(&format!("__from_env_impls_{}", self.ident)).unwrap();
 
         quote! {
-            const _: () = {
-                use ::#crate_name::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar, EnvItemInfo};
+            pub use #mod_ident::#error_ident;
+            mod #mod_ident {
+                use super::*;
+                use #crate_name::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar, EnvItemInfo};
 
                 #expanded_impl
 
                 #expanded_error
-            };
+            }
         }
     }
 }

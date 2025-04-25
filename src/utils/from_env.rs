@@ -1,5 +1,8 @@
 use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 
+/// Re-export the proc macro for the `FromEnv` trait.
+pub use from_env_derive::FromEnv;
+
 /// Details about an environment variable. This is used to generate
 /// documentation for the environment variables and by the [`FromEnv`] trait to
 /// check if necessary environment variables are present.
@@ -104,7 +107,7 @@ pub fn parse_env_if_present<T: FromStr>(env_var: &str) -> Result<T, FromEnvErr<T
 /// values.
 pub trait FromEnv: core::fmt::Debug + Sized + 'static {
     /// Error type produced when loading from the environment.
-    type Error: core::error::Error;
+    type Error: core::error::Error + Clone;
 
     /// Get the required environment variable names for this type.
     ///
@@ -180,6 +183,24 @@ impl FromEnvVar for std::time::Duration {
 
     fn from_env_var(s: &str) -> Result<Self, FromEnvErr<Self::Error>> {
         u64::from_env_var(s).map(Self::from_millis)
+    }
+}
+
+impl<T> FromEnvVar for Vec<T>
+where
+    T: FromEnvVar,
+{
+    type Error = T::Error;
+
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+        let s = std::env::var(env_var).map_err(|e| FromEnvErr::env_err(env_var, e))?;
+        if s.is_empty() {
+            return Ok(vec![]);
+        }
+        s.split(',')
+            .map(|s| T::from_env_var(s))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(FromEnvErr::from)
     }
 }
 

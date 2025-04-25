@@ -1,32 +1,15 @@
-use crate::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar};
-use core::num;
-
-use super::from_env::EnvItemInfo;
-
-// Env vars
-pub(crate) const START_TIMESTAMP: &str = "START_TIMESTAMP";
-pub(crate) const SLOT_OFFSET: &str = "SLOT_OFFSET";
-pub(crate) const SLOT_DURATION: &str = "SLOT_DURATION";
-
-/// Possible errors when loading the slot authorization configuration.
-#[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
-pub enum SlotCalcEnvError {
-    /// Error reading environment variable.
-    #[error("error reading the start timestamp: {0}")]
-    StartTimestamp(num::ParseIntError),
-    /// Error reading block query cutoff.
-    #[error("error reading slot offset: {0}")]
-    SlotOffset(num::ParseIntError),
-    /// Error reading block query start.
-    #[error("error reading slot duration: {0}")]
-    SlotDuration(num::ParseIntError),
-}
+use crate::utils::from_env::FromEnv;
 
 /// A slot calculator, which can calculate the slot number for a given
 /// timestamp.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Deserialize, FromEnv)]
+#[from_env(crate)]
 pub struct SlotCalculator {
     /// The start timestamp.
+    #[from_env(
+        var = "START_TIMESTAMP",
+        desc = "The start timestamp of the chain in seconds"
+    )]
     start_timestamp: u64,
 
     /// This is the number of the slot containing the block which contains the
@@ -35,9 +18,17 @@ pub struct SlotCalculator {
     /// This is needed for chains that contain a merge (like Ethereum Mainnet),
     /// or for chains with missed slots at the start of the chain (like
     /// Holesky).
+    #[from_env(
+        var = "SLOT_OFFSET",
+        desc = "The number of the slot containing the start timestamp"
+    )]
     slot_offset: u64,
 
     /// The slot duration (in seconds).
+    #[from_env(
+        var = "SLOT_DURATION",
+        desc = "The slot duration of the chain in seconds"
+    )]
     slot_duration: u64,
 }
 
@@ -121,42 +112,6 @@ impl SlotCalculator {
     /// The offset in seconds between UTC time and slot mining times
     const fn slot_utc_offset(&self) -> u64 {
         self.start_timestamp % self.slot_duration
-    }
-}
-
-impl FromEnv for SlotCalculator {
-    type Error = SlotCalcEnvError;
-
-    fn inventory() -> Vec<&'static EnvItemInfo> {
-        vec![
-            &EnvItemInfo {
-                var: START_TIMESTAMP,
-                description: "The start timestamp of the chain in seconds",
-                optional: false,
-            },
-            &EnvItemInfo {
-                var: SLOT_OFFSET,
-                description: "The slot offset of the chain in seconds",
-                optional: false,
-            },
-            &EnvItemInfo {
-                var: SLOT_DURATION,
-                description: "The slot duration of the chain in seconds",
-                optional: false,
-            },
-        ]
-    }
-
-    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
-        let start_timestamp = u64::from_env_var(START_TIMESTAMP)
-            .map_err(|e| e.map(SlotCalcEnvError::StartTimestamp))?;
-        let slot_offset =
-            u64::from_env_var(SLOT_OFFSET).map_err(|e| e.map(SlotCalcEnvError::SlotOffset))?;
-
-        let slot_duration =
-            u64::from_env_var(SLOT_DURATION).map_err(|e| e.map(SlotCalcEnvError::SlotDuration))?;
-
-        Ok(Self::new(start_timestamp, slot_offset, slot_duration))
     }
 }
 
