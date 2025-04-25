@@ -1,4 +1,4 @@
-use from_env_derive::FromEnv;
+use init4_from_env_derive::FromEnv;
 
 #[derive(FromEnv, Debug)]
 pub struct FromEnvTest {

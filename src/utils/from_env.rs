@@ -1,7 +1,84 @@
 use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 
-/// Re-export the proc macro for the `FromEnv` trait.
-pub use from_env_derive::FromEnv;
+/// The `derive(FromEnv)` macro.
+///
+/// This macro generates a [`FromEnv`] implementation for the struct it is
+/// applied to. It will generate a `from_env` function that loads the struct
+/// from the environment. It will also generate an `inventory` function that
+/// returns a list of all environment variables that are required to load the
+/// struct.
+///
+/// The macro also generates a `__EnvError` type that captures errors that can
+/// occur when trying to create an instance of the struct from environment
+/// variables. This error type is used in the `FromEnv` trait implementation.
+///
+/// ## Basics
+///
+/// There are a few usage requirements:
+///
+/// - Struct props MUST implement either [`FromEnvVar`] or [`FromEnv`].
+/// - If the prop implements [`FromEnvVar`], it must be tagged as follows:
+///     - `var = "ENV_VAR_NAME"`: The environment variable name to load.
+///     - `desc = "description"`: A description of the environment variable.
+/// - If the prop is an [`Option<T>`], it must be tagged as follows:
+///     - `optional`
+/// - If the prop's associated error type is [`Infallible`], it must be tagged
+///   as follows:
+///     - `infallible`
+/// - If used within this crate (`init4_bin_base`), the entire struct must be
+///   tagged with `#[from_env(crate)]` (see the [`SlotCalculator`] for an
+///   example).
+///
+/// # Examples
+///
+/// The following example shows how to use the macro:
+///
+/// ```
+/// # // I am unsure why we need this, as identical code works in
+/// # // integration tests. However, compile test fails without it.
+/// # #![allow(proc_macro_derive_resolution_fallback)]
+/// use init4_bin_base::utils::from_env::{FromEnv};
+///
+/// #[derive(Debug, FromEnv)]
+/// pub struct MyCfg {
+///     #[from_env(var = "COOL_DUDE", desc = "Some u8 we like :o)")]
+///     pub my_cool_u8: u8,
+///
+///     #[from_env(var = "CHUCK", desc = "Charles is a u64")]
+///     pub charles: u64,
+///
+///     #[from_env(
+///         var = "PERFECT",
+///         desc = "A bold and neat string",
+///         infallible,
+///     )]
+///     pub strings_cannot_fail: String,
+///
+///     #[from_env(
+///         var = "MAYBE_NOT_NEEDED",
+///         desc = "This is an optional string",
+///         optional,
+///         infallible,
+///     )]
+///     maybe_not_needed: Option<String>,
+/// }
+/// ```
+///
+/// This will generate a `FromEnv` implementation for the struct, and a
+/// `MyCfgEnvError` type that is used to represent errors that can occur when
+/// loading from the environment. The error generated will look like this:
+///
+/// ```ignore
+/// pub enum MyCfgEnvError {
+///     MyCoolU8(<u8 as FromEnvVar>::Error),
+///     Charles(<u64 as FromEnvVar>::Error),
+///     // No variants for infallible errors.
+/// }
+/// ```
+///
+/// [`Infallible`]: std::convert::Infallible
+/// [`SlotCalculator`]: crate::utils::SlotCalculator
+pub use init4_from_env_derive::FromEnv;
 
 /// Details about an environment variable. This is used to generate
 /// documentation for the environment variables and by the [`FromEnv`] trait to

@@ -6,6 +6,8 @@ use syn::{parse_macro_input, DeriveInput};
 mod field;
 use field::Field;
 
+/// This macro generates an implementation of the `FromEnv` trait for a struct.
+/// See the documenetation in init4_bin_base for more details.
 #[proc_macro_derive(FromEnv, attributes(from_env))]
 pub fn derive(input: Ts) -> Ts {
     let input = parse_macro_input!(input as DeriveInput);
@@ -101,7 +103,7 @@ impl Input {
     }
 
     fn error_ident(&self) -> syn::Ident {
-        let error_name = format!("{}Error", self.ident);
+        let error_name = format!("{}EnvError", self.ident);
         syn::parse_str::<syn::Ident>(&error_name)
             .map_err(|_| {
                 syn::Error::new(self.ident.span(), "Failed to parse error ident").to_compile_error()
@@ -113,7 +115,7 @@ impl Input {
         self.fields
             .iter()
             .enumerate()
-            .map(|(idx, field)| field.expand_enum_variant(idx))
+            .flat_map(|(idx, field)| field.expand_enum_variant(idx))
             .collect()
     }
 
@@ -121,7 +123,7 @@ impl Input {
         self.fields
             .iter()
             .enumerate()
-            .map(|(idx, field)| field.expand_variant_display(idx))
+            .flat_map(|(idx, field)| field.expand_variant_display(idx))
             .collect::<Vec<_>>()
     }
 
@@ -129,7 +131,7 @@ impl Input {
         self.fields
             .iter()
             .enumerate()
-            .map(|(idx, field)| field.expand_variant_source(idx))
+            .flat_map(|(idx, field)| field.expand_variant_source(idx))
             .collect::<Vec<_>>()
     }
 
@@ -199,7 +201,6 @@ impl Input {
         let struct_instantiation = self.instantiate_struct();
 
         quote! {
-
             #[automatically_derived]
             impl FromEnv for #struct_name {
                 type Error = #error_ident;

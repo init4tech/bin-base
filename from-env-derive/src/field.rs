@@ -114,35 +114,31 @@ impl Field {
     }
 
     /// Produces the name of the enum variant for the field
-    pub(crate) fn enum_variant_name(&self, idx: usize) -> TokenStream {
+    pub(crate) fn enum_variant_name(&self, idx: usize) -> Option<TokenStream> {
+        if self.infallible {
+            return None;
+        }
+
         let n = self.field_name(idx).to_string().to_pascal_case();
 
         let n: Ident = syn::parse_str::<Ident>(&n)
             .map_err(|_| syn::Error::new(self.span, "Failed to create field name"))
             .unwrap();
 
-        quote! { #n }
+        Some(quote! { #n })
     }
 
     /// Produces the variant, containing the error type
-    pub(crate) fn expand_enum_variant(&self, idx: usize) -> TokenStream {
-        let variant_name = self.enum_variant_name(idx);
+    pub(crate) fn expand_enum_variant(&self, idx: usize) -> Option<TokenStream> {
+        let variant_name = self.enum_variant_name(idx)?;
         let var_name_str = variant_name.to_string();
         let assoc_err = self.assoc_err();
 
-        if self.infallible {
-            return quote! {
-                #[doc = "Error for "]
-                #[doc = #var_name_str]
-                #variant_name
-            };
-        }
-
-        quote! {
+        Some(quote! {
             #[doc = "Error for "]
             #[doc = #var_name_str]
             #variant_name(#assoc_err)
-        }
+        })
     }
 
     /// Produces the a line for the `inventory` function
@@ -174,32 +170,20 @@ impl Field {
         }
     }
 
-    pub(crate) fn expand_variant_display(&self, idx: usize) -> TokenStream {
-        let variant_name = self.enum_variant_name(idx);
+    pub(crate) fn expand_variant_display(&self, idx: usize) -> Option<TokenStream> {
+        let variant_name = self.enum_variant_name(idx)?;
 
-        if self.infallible {
-            return quote! {
-                Self::#variant_name => unreachable!("Infallible")
-            };
-        }
-
-        quote! {
+        Some(quote! {
             Self::#variant_name(err) => err.fmt(f)
-        }
+        })
     }
 
-    pub(crate) fn expand_variant_source(&self, idx: usize) -> TokenStream {
-        let variant_name = self.enum_variant_name(idx);
+    pub(crate) fn expand_variant_source(&self, idx: usize) -> Option<TokenStream> {
+        let variant_name = self.enum_variant_name(idx)?;
 
-        if self.infallible {
-            return quote! {
-                Self::#variant_name => unreachable!("Infallible")
-            };
-        }
-
-        quote! {
+        Some(quote! {
             Self::#variant_name(err) => Some(err)
-        }
+        })
     }
 
     pub(crate) fn expand_item_from_env(&self, err_ident: &Ident, idx: usize) -> TokenStream {
