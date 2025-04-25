@@ -62,6 +62,15 @@ use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 ///     )]
 ///     maybe_not_needed: Option<String>,
 /// }
+///
+/// # fn use_it() {
+/// if let Err(missing) = MyCfg::check_inventory() {
+///     println!("Missing environment variables:");
+///     for var in missing {
+///         println!("{}: {}", var.var, var.description);
+///     }
+/// }
+/// # }
 /// ```
 ///
 /// This will generate a `FromEnv` implementation for the struct, and a
