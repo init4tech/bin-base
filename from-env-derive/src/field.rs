@@ -1,7 +1,7 @@
 use heck::ToPascalCase;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{spanned::Spanned, Ident, LitStr};
+use syn::{Ident, LitStr, spanned::Spanned};
 
 /// A parsed Field of a struct
 pub(crate) struct Field {
