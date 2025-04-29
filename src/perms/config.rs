@@ -59,38 +59,3 @@ impl SlotAuthzConfig {
         self.block_query_start as u64
     }
 }
-
-// impl FromEnv for SlotAuthzConfig {
-//     type Error = SlotAuthzConfigError;
-
-//     fn inventory() -> Vec<&'static EnvItemInfo> {
-//         let mut v = vec![
-//             &EnvItemInfo {
-//                 var: BLOCK_QUERY_CUTOFF,
-//                 description: "The block query cutoff time in seconds. This is the slot second after which requests will not be serviced. E.g. a value of 1 means that requests will not be serviced for the last second of any given slot.",
-//                 optional: false,
-//             }, &EnvItemInfo {
-//                 var: BLOCK_QUERY_START,
-//                 description: "The block query start time in seconds. This is the slot second before which requests will not be serviced. E.g. a value of 1 means that requests will not be serviced for the first second of any given slot.",
-//                 optional: false,
-//             }];
-//         v.extend(SlotCalculator::inventory());
-//         v
-//     }
-
-//     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
-//         let calc = SlotCalculator::from_env().map_err(FromEnvErr::from)?;
-//         let block_query_cutoff = u8::from_env_var(BLOCK_QUERY_CUTOFF)
-//             .map_err(|e| e.map(SlotAuthzConfigError::BlockQueryCutoff))?
-//             .clamp(0, 11);
-//         let block_query_start = u8::from_env_var(BLOCK_QUERY_START)
-//             .map_err(|e| e.map(SlotAuthzConfigError::BlockQueryStart))?
-//             .clamp(0, 11);
-
-//         Ok(Self {
-//             calc,
-//             block_query_cutoff,
-//             block_query_start,
-//         })
-//     }
-// }
