@@ -18,13 +18,13 @@ pub struct EnvItemInfo {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum FromEnvErr<Inner> {
     /// The environment variable is missing.
-    #[error("Error reading variable {0}: {1}")]
+    #[error("error reading variable {0}: {1}")]
     EnvError(String, VarError),
     /// The environment variable is empty.
-    #[error("Environment variable {0} is empty")]
+    #[error("environment variable {0} is empty")]
     Empty(String),
     /// The environment variable is present, but the value could not be parsed.
-    #[error("Failed to parse environment variable {0}")]
+    #[error("failed to parse environment variable {0}")]
     ParseError(#[from] Inner),
 }
 
