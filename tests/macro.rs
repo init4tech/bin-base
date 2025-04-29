@@ -22,8 +22,21 @@ pub struct MyCfg {
     pub maybe_not_needed: Option<String>,
 }
 
+#[derive(Debug, FromEnv)]
+pub struct MyTupleCfg(
+    #[from_env(var = "FIRST_ELEMENT", desc = "this is the first tuple element")] pub u8,
+    pub MyCfg,
+);
+
 #[test]
 fn basic_inventory() {
     let inv = MyCfg::inventory();
     assert_eq!(inv.len(), 4);
+}
+
+#[test]
+fn nested_inventory() {
+    let inv = MyTupleCfg::inventory();
+    assert_eq!(inv.len(), 5);
+    dbg!(inv);
 }
