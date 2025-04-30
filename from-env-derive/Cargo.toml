@@ -3,7 +3,7 @@ name = "init4-from-env-derive"
 
 description = "A derive macro for `init4_bin_base::FromEnv`"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 rust-version = "1.81"
 authors = ["init4", "James Prestwich"]
 license = "MIT OR Apache-2.0"
