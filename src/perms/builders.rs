@@ -79,7 +79,7 @@ impl FromEnvVar for Builder {
 pub struct Builders {
     /// The list of builders.
     ///
-    /// This is configured in the environment variable `PERMISSIONED_BUILDERS`,
+    /// This is configured in the environment variable `BUILDERS`,
     /// as a list of comma-separated UUIDs.
     #[serde(deserialize_with = "deser_builders")]
     #[from_env(
