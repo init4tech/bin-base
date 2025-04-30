@@ -12,6 +12,21 @@ use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 /// occur when trying to create an instance of the struct from environment
 /// variables. This error type is used in the `FromEnv` trait implementation.
 ///
+/// ## Attributes
+///
+/// The macro supports the following attributes:
+/// - `var = ""`: The name of the environment variable. This is required if the
+///   prop implements [`FromEnvVar`].
+/// - `desc`: A description of the environment variable. This is required if
+///   the prop implements [`FromEnvVar`].
+/// - `optional`: Marks the prop as optional. This is currently only used in the
+///   `fn inventory` function, and is informational.
+/// - `infallible`: Marks the prop as infallible. This means that the prop
+///   cannot fail to be parsed after the environment variable is loaded.
+/// - `skip`: Marks the prop as skipped. This means that the prop will not be
+///   loaded from the environment, and will be generated via
+///   `Default::default()` instead.
+///
 /// ## Conditions of use
 ///
 /// There are a few usage requirements:

@@ -1,7 +1,7 @@
 use proc_macro::TokenStream as Ts;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, parse_macro_input};
+use syn::{parse_macro_input, DeriveInput};
 
 mod field;
 use field::Field;
@@ -60,6 +60,8 @@ pub fn derive(input: Ts) -> Ts {
         crate_name,
         tuple_like,
     };
+
+    eprintln!("{}", input.expand_mod());
 
     input.expand_mod().into()
 }

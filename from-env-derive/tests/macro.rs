@@ -25,6 +25,9 @@ pub struct FromEnvTest {
         desc = "Oliver is an Option<String>"
     )]
     pub oliver: Option<String>,
+
+    #[from_env(skip)]
+    memo: std::sync::OnceLock<String>,
 }
 
 #[derive(Debug, FromEnv)]
@@ -34,6 +37,13 @@ pub struct Nested {
 
     /// Hi
     pub from_env_test: FromEnvTest,
+}
+
+impl FromEnvTest {
+    /// Get the memoized value
+    pub fn get_memo(&self) -> &str {
+        self.memo.get_or_init(|| "hello world".to_string())
+    }
 }
 
 #[cfg(test)]
