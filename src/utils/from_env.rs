@@ -1,5 +1,96 @@
 use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 
+/// The `derive(FromEnv)` macro.
+///
+/// This macro generates a [`FromEnv`] implementation for the struct it is
+/// applied to. It will generate a `from_env` function that loads the struct
+/// from the environment. It will also generate an `inventory` function that
+/// returns a list of all environment variables that are required to load the
+/// struct.
+///
+/// The macro also generates a `__EnvError` type that captures errors that can
+/// occur when trying to create an instance of the struct from environment
+/// variables. This error type is used in the `FromEnv` trait implementation.
+///
+/// ## Conditions of use
+///
+/// There are a few usage requirements:
+///
+/// - Struct props MUST implement either [`FromEnvVar`] or [`FromEnv`].
+/// - If the prop implements [`FromEnvVar`], it must be tagged as follows:
+///     - `var = "ENV_VAR_NAME"`: The environment variable name to load.
+///     - `desc = "description"`: A description of the environment variable.
+/// - If the prop is an [`Option<T>`], it must be tagged as follows:
+///     - `optional`
+/// - If the prop's associated error type is [`Infallible`], it must be tagged
+///   as follows:
+///     - `infallible`
+/// - If used within this crate (`init4_bin_base`), the entire struct must be
+///   tagged with `#[from_env(crate)]` (see the [`SlotCalculator`] for an
+///   example).
+///
+/// # Examples
+///
+/// The following example shows how to use the macro:
+///
+/// ```
+/// # // I am unsure why we need this, as identical code works in
+/// # // integration tests. However, compile test fails without it.
+/// # #![allow(proc_macro_derive_resolution_fallback)]
+/// use init4_bin_base::utils::from_env::{FromEnv};
+///
+/// #[derive(Debug, FromEnv)]
+/// pub struct MyCfg {
+///     #[from_env(var = "COOL_DUDE", desc = "Some u8 we like :o)")]
+///     pub my_cool_u8: u8,
+///
+///     #[from_env(var = "CHUCK", desc = "Charles is a u64")]
+///     pub charles: u64,
+///
+///     #[from_env(
+///         var = "PERFECT",
+///         desc = "A bold and neat string",
+///         infallible,
+///     )]
+///     pub strings_cannot_fail: String,
+///
+///     #[from_env(
+///         var = "MAYBE_NOT_NEEDED",
+///         desc = "This is an optional string",
+///         optional,
+///         infallible,
+///     )]
+///     maybe_not_needed: Option<String>,
+/// }
+///
+/// // The `FromEnv` trait is implemented for the struct, and the struct can
+/// // be loaded from the environment.
+/// # fn use_it() {
+/// if let Err(missing) = MyCfg::check_inventory() {
+///     println!("Missing environment variables:");
+///     for var in missing {
+///         println!("{}: {}", var.var, var.description);
+///     }
+/// }
+/// # }
+/// ```
+///
+/// This will generate a `FromEnv` implementation for the struct, and a
+/// `MyCfgEnvError` type that is used to represent errors that can occur when
+/// loading from the environment. The error generated will look like this:
+///
+/// ```ignore
+/// pub enum MyCfgEnvError {
+///     MyCoolU8(<u8 as FromEnvVar>::Error),
+///     Charles(<u64 as FromEnvVar>::Error),
+///     // No variants for infallible errors.
+/// }
+/// ```
+///
+/// [`Infallible`]: std::convert::Infallible
+/// [`SlotCalculator`]: crate::utils::SlotCalculator
+pub use init4_from_env_derive::FromEnv;
+
 /// Details about an environment variable. This is used to generate
 /// documentation for the environment variables and by the [`FromEnv`] trait to
 /// check if necessary environment variables are present.
@@ -101,10 +192,48 @@ pub fn parse_env_if_present<T: FromStr>(env_var: &str) -> Result<T, FromEnvErr<T
 /// - Struct elements are at fixed env vars, known by the type at compile time.
 ///
 /// As such, unless the env is modified, these are essentially static runtime
-/// values.
+/// values. We do not recommend using dynamic env vars.
+///
+/// ## [`FromEnv`] vs [`FromEnvVar`]
+///
+/// While [`FromEnvVar`] deals with loading simple types from the environment,
+/// [`FromEnv`] is for loading complex types. It builds a struct from the
+/// environment, usually be delegating each field to a [`FromEnvVar`] or
+/// [`FromEnv`] implementation. [`FromEnv`] effectively defines a singleton
+/// configuration object, which is produced by loading many env vars, while
+/// [`FromEnvVar`] defines a procedure for loading data from a single
+/// environment variable.
+///
+/// ## Implementing [`FromEnv`]
+///
+/// Please use the [`FromEnv`](macro@FromEnv) derive macro to implement this
+/// trait.
+///
+/// ## Note on error types
+///
+/// [`FromEnv`] and [`FromEnvVar`] are often deeply nested. This means that
+/// error types are often nested as well. To avoid this, we use a single error
+/// type [`FromEnvVar`] that wraps an inner error type. This allows us to
+/// ensure that env-related errors (e.g. missing env vars) are not lost in the
+/// recursive structure of parsing errors. Environment errors are always at the
+/// top level, and should never be nested. **Do not use [`FromEnvErr<T>`] as
+/// the `Error` associated type in [`FromEnv`].**
+///
+/// ```no_compile
+/// // Do not do this
+/// impl FromEnv for MyType {
+///     type Error = FromEnvErr<MyTypeErr>;
+/// }
+///
+/// // Instead do this:
+/// impl FromEnv for MyType {
+///    type Error = MyTypeErr;
+/// }
+/// ```
+///
 pub trait FromEnv: core::fmt::Debug + Sized + 'static {
     /// Error type produced when loading from the environment.
-    type Error: core::error::Error;
+    type Error: core::error::Error + Clone;
 
     /// Get the required environment variable names for this type.
     ///
@@ -144,6 +273,55 @@ pub trait FromEnv: core::fmt::Debug + Sized + 'static {
 ///
 /// It aims to make [`FromEnv`] implementations easier to write, by providing a
 /// default implementation for common types.
+///
+/// ## Note on error types
+///
+/// [`FromEnv`] and [`FromEnvVar`] are often deeply nested. This means that
+/// error types are often nested as well. To avoid this, we use a single error
+/// type [`FromEnvVar`] that wraps an inner error type. This allows us to
+/// ensure that env-related errors (e.g. missing env vars) are not lost in the
+/// recursive structure of parsing errors. Environment errors are always at the
+/// top level, and should never be nested. **Do not use [`FromEnvErr<T>`] as
+/// the `Error` associated type in [`FromEnv`].**
+///
+/// ```no_compile
+/// // Do not do this
+/// impl FromEnv for MyType {
+///     type Error = FromEnvErr<MyTypeErr>;
+/// }
+///
+/// // Instead do this:
+/// impl FromEnv for MyType {
+///    type Error = MyTypeErr;
+/// }
+/// ```
+///
+/// ## Implementing [`FromEnv`]
+///
+/// [`FromEnvVar`] is a trait for loading simple types from the environment. It
+/// represents a type that can be loaded from a single environment variable. It
+/// is similar to [`FromStr`] and will usually be using an existing [`FromStr`]
+/// impl.
+///
+/// ```
+/// # use init4_bin_base::utils::from_env::FromEnvVar;
+/// # pub struct MyCoolType;
+/// # impl std::str::FromStr for MyCoolType {
+/// #    type Err;
+/// #    fn from_str(s: &str) -> Result<Self, Self::Err> {
+/// #        Ok(MyCoolType)
+/// #    }
+/// # }
+/// // We can re-use the `FromStr` implementation for our `FromEnvVar` impl.
+/// impl FromEnvVar for MyCoolType {
+///     type Error = <MyCoolType as FromStr>::Err;
+///
+///     fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>>
+///     {
+///         String::from_env_var(env_var).unwrap().parse().map_err(Into::into)
+///     }
+/// }
+/// ```
 pub trait FromEnvVar: core::fmt::Debug + Sized + 'static {
     /// Error type produced when parsing the primitive.
     type Error: core::error::Error;
@@ -180,6 +358,24 @@ impl FromEnvVar for std::time::Duration {
 
     fn from_env_var(s: &str) -> Result<Self, FromEnvErr<Self::Error>> {
         u64::from_env_var(s).map(Self::from_millis)
+    }
+}
+
+impl<T> FromEnvVar for Vec<T>
+where
+    T: From<String> + core::fmt::Debug + 'static,
+{
+    type Error = Infallible;
+
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+        let s = std::env::var(env_var).map_err(|e| FromEnvErr::env_err(env_var, e))?;
+        if s.is_empty() {
+            return Ok(vec![]);
+        }
+        Ok(s.split(',')
+            .map(str::to_string)
+            .map(Into::into)
+            .collect::<Vec<_>>())
     }
 }
 

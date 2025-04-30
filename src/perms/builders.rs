@@ -7,16 +7,13 @@
 //! token they acquire from our OAuth service.
 
 use crate::{
-    perms::{SlotAuthzConfig, SlotAuthzConfigError},
+    perms::SlotAuthzConfig,
     utils::{
         calc::SlotCalculator,
-        from_env::{EnvItemInfo, FromEnv, FromEnvErr, FromEnvVar},
+        from_env::{FromEnv, FromEnvErr, FromEnvVar},
     },
 };
 use serde::{Deserialize, Deserializer};
-
-/// The builder list env var.
-const BUILDERS: &str = "PERMISSIONED_BUILDERS";
 
 fn now() -> u64 {
     chrono::Utc::now().timestamp().try_into().unwrap()
@@ -36,25 +33,6 @@ pub enum BuilderPermissionError {
     /// Builder not permissioned for this slot.
     #[error("builder not permissioned for this slot")]
     NotPermissioned,
-}
-
-/// Possible errors when loading the builder configuration.
-#[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
-pub enum BuilderConfigError {
-    /// Error loading the environment variable.
-    #[error(
-        "failed to parse environment variable. Expected a comma-seperated list of UUIDs. Got: {input}"
-    )]
-    ParseError {
-        /// The environment variable name.
-        env_var: String,
-        /// The contents of the environment variable.
-        input: String,
-    },
-
-    /// Error loading the slot authorization configuration.
-    #[error(transparent)]
-    SlotAutzConfig(#[from] SlotAuthzConfigError),
 }
 
 /// An individual builder.
@@ -85,14 +63,30 @@ impl Builder {
     }
 }
 
+impl FromEnvVar for Builder {
+    type Error = std::convert::Infallible;
+
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+        Ok(Self {
+            sub: String::from_env_var(env_var)?,
+        })
+    }
+}
+
 /// Builders struct to keep track of the builders that are allowed to perform actions.
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize, FromEnv)]
+#[from_env(crate)]
 pub struct Builders {
     /// The list of builders.
     ///
     /// This is configured in the environment variable `PERMISSIONED_BUILDERS`,
     /// as a list of comma-separated UUIDs.
     #[serde(deserialize_with = "deser_builders")]
+    #[from_env(
+        infallible,
+        var = "BUILDERS",
+        desc = "A comma-separated list of UUIDs representing the builders that are allowed to perform actions."
+    )]
     pub builders: Vec<Builder>,
 
     /// The slot authorization configuration. See [`SlotAuthzConfig`] for more
@@ -191,49 +185,21 @@ impl Builders {
     }
 }
 
-impl FromEnv for Builders {
-    type Error = BuilderConfigError;
-
-    fn inventory() -> Vec<&'static EnvItemInfo> {
-        let mut v = vec![
-            &EnvItemInfo {
-                var: BUILDERS,
-                description: "A comma-separated list of UUIDs representing the builders that are allowed to perform actions.",
-                optional: false,
-            },
-        ];
-        v.extend(SlotAuthzConfig::inventory());
-        v
-    }
-
-    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
-        let s = String::from_env_var(BUILDERS)
-            .map_err(FromEnvErr::infallible_into::<BuilderConfigError>)?;
-        let builders = split_builders(&s);
-
-        let config = SlotAuthzConfig::from_env().map_err(FromEnvErr::from)?;
-
-        Ok(Self { builders, config })
-    }
-}
-
 #[cfg(test)]
 mod test {
-
     use super::*;
-    use crate::{perms, utils::calc};
 
     #[test]
     fn load_builders() {
         unsafe {
-            std::env::set_var(BUILDERS, "0,1,2,3,4,5");
+            std::env::set_var("BUILDERS", "0,1,2,3,4,5");
 
-            std::env::set_var(calc::START_TIMESTAMP, "1");
-            std::env::set_var(calc::SLOT_OFFSET, "0");
-            std::env::set_var(calc::SLOT_DURATION, "12");
+            std::env::set_var("START_TIMESTAMP", "1");
+            std::env::set_var("SLOT_OFFSET", "0");
+            std::env::set_var("SLOT_DURATION", "12");
 
-            std::env::set_var(perms::config::BLOCK_QUERY_START, "1");
-            std::env::set_var(perms::config::BLOCK_QUERY_CUTOFF, "11");
+            std::env::set_var("BLOCK_QUERY_START", "1");
+            std::env::set_var("BLOCK_QUERY_CUTOFF", "11");
         };
 
         let builders = Builders::from_env().unwrap();
