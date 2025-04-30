@@ -17,10 +17,10 @@ use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 /// The macro supports the following attributes:
 /// - `var = ""`: The name of the environment variable. This is required if the
 ///   prop implements [`FromEnvVar`].
-/// - `desc`: A description of the environment variable. This is required if
-///   the prop implements [`FromEnvVar`].
+/// - `desc = ""`: A description of the environment variable. This is required
+///   if the prop implements [`FromEnvVar`].
 /// - `optional`: Marks the prop as optional. This is currently only used in the
-///   `fn inventory` function, and is informational.
+///   generated `fn inventory`, and is informational.
 /// - `infallible`: Marks the prop as infallible. This means that the prop
 ///   cannot fail to be parsed after the environment variable is loaded.
 /// - `skip`: Marks the prop as skipped. This means that the prop will not be

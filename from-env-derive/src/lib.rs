@@ -61,8 +61,6 @@ pub fn derive(input: Ts) -> Ts {
         tuple_like,
     };
 
-    eprintln!("{}", input.expand_mod());
-
     input.expand_mod().into()
 }
 
