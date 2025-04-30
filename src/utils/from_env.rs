@@ -304,14 +304,17 @@ pub trait FromEnv: core::fmt::Debug + Sized + 'static {
 /// impl.
 ///
 /// ```
-/// # use init4_bin_base::utils::from_env::FromEnvVar;
+/// # use init4_bin_base::utils::from_env::{FromEnvVar, FromEnvErr};
+/// # use std::str::FromStr;
+/// # #[derive(Debug)]
 /// # pub struct MyCoolType;
 /// # impl std::str::FromStr for MyCoolType {
-/// #    type Err;
+/// #    type Err = std::convert::Infallible;
 /// #    fn from_str(s: &str) -> Result<Self, Self::Err> {
 /// #        Ok(MyCoolType)
 /// #    }
 /// # }
+///
 /// // We can re-use the `FromStr` implementation for our `FromEnvVar` impl.
 /// impl FromEnvVar for MyCoolType {
 ///     type Error = <MyCoolType as FromStr>::Err;

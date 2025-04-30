@@ -13,7 +13,7 @@ homepage = "https://github.com/init4tech/bin-base"
 repository = "https://github.com/init4tech/bin-base"
 
 [dependencies]
-init4-from-env-derive = { path = "./from-env-derive" }
+init4-from-env-derive =  "0.1.0"
 
 # Tracing
 tracing = "0.1.40"
