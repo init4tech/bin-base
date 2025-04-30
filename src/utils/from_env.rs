@@ -281,6 +281,87 @@ pub trait FromEnv: core::fmt::Debug + Sized + 'static {
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>>;
 }
 
+impl<T> FromEnv for Option<T>
+where
+    T: FromEnv,
+{
+    type Error = T::Error;
+
+    fn inventory() -> Vec<&'static EnvItemInfo> {
+        T::inventory()
+    }
+
+    fn check_inventory() -> Result<(), Vec<&'static EnvItemInfo>> {
+        T::check_inventory()
+    }
+
+    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+        match T::from_env() {
+            Ok(v) => Ok(Some(v)),
+            Err(FromEnvErr::Empty(_)) | Err(FromEnvErr::EnvError(_, _)) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+impl<T> FromEnv for Box<T>
+where
+    T: FromEnv,
+{
+    type Error = T::Error;
+
+    fn inventory() -> Vec<&'static EnvItemInfo> {
+        T::inventory()
+    }
+
+    fn check_inventory() -> Result<(), Vec<&'static EnvItemInfo>> {
+        T::check_inventory()
+    }
+
+    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+        T::from_env().map(Box::new)
+    }
+}
+
+impl<T> FromEnv for std::sync::Arc<T>
+where
+    T: FromEnv,
+{
+    type Error = T::Error;
+
+    fn inventory() -> Vec<&'static EnvItemInfo> {
+        T::inventory()
+    }
+
+    fn check_inventory() -> Result<(), Vec<&'static EnvItemInfo>> {
+        T::check_inventory()
+    }
+
+    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+        T::from_env().map(std::sync::Arc::new)
+    }
+}
+
+impl<T, U> FromEnv for std::borrow::Cow<'static, U>
+where
+    T: FromEnv,
+    U: std::borrow::ToOwned<Owned = T> + core::fmt::Debug,
+{
+    type Error = T::Error;
+
+    fn inventory() -> Vec<&'static EnvItemInfo> {
+        T::inventory()
+    }
+
+    fn check_inventory() -> Result<(), Vec<&'static EnvItemInfo>> {
+        T::check_inventory()
+    }
+
+    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+        T::from_env().map(std::borrow::Cow::Owned)
+    }
+}
+
 /// Trait for loading primitives from the environment. These are simple types
 /// that should correspond to a single environment variable. It has been
 /// implemented for common integer types, [`String`], [`url::Url`],
@@ -402,6 +483,40 @@ where
             Ok(_) => T::from_env_var(env_var).map(Some),
             Err(_) => Ok(None),
         }
+    }
+}
+
+impl<T> FromEnvVar for Box<T>
+where
+    T: FromEnvVar,
+{
+    type Error = T::Error;
+
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+        T::from_env_var(env_var).map(Box::new)
+    }
+}
+
+impl<T> FromEnvVar for std::sync::Arc<T>
+where
+    T: FromEnvVar,
+{
+    type Error = T::Error;
+
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+        T::from_env_var(env_var).map(std::sync::Arc::new)
+    }
+}
+
+impl<T, U> FromEnvVar for std::borrow::Cow<'static, U>
+where
+    T: FromEnvVar,
+    U: std::borrow::ToOwned<Owned = T> + core::fmt::Debug,
+{
+    type Error = T::Error;
+
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+        T::from_env_var(env_var).map(std::borrow::Cow::Owned)
     }
 }
 
