@@ -1,7 +1,7 @@
 use heck::ToPascalCase;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Ident, LitStr, spanned::Spanned};
+use syn::{spanned::Spanned, Ident, LitStr};
 
 /// A parsed Field of a struct
 pub(crate) struct Field {
@@ -11,6 +11,7 @@ pub(crate) struct Field {
 
     optional: bool,
     infallible: bool,
+    skip: bool,
     desc: Option<String>,
 
     _attrs: Vec<syn::Attribute>,
@@ -26,6 +27,7 @@ impl TryFrom<&syn::Field> for Field {
         let mut env_var = None;
         let mut infallible = false;
         let mut desc = None;
+        let mut skip = false;
 
         field
             .attrs
@@ -33,6 +35,10 @@ impl TryFrom<&syn::Field> for Field {
             .filter(|attr| attr.path().is_ident("from_env"))
             .for_each(|attr| {
                 let _ = attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("skip") {
+                        skip = true;
+                        return Ok(());
+                    }
                     if meta.path.is_ident("optional") {
                         optional = true;
                         return Ok(());
@@ -68,6 +74,7 @@ impl TryFrom<&syn::Field> for Field {
             field_name,
             field_type,
             optional,
+            skip,
             infallible,
             desc,
             _attrs: field
@@ -115,7 +122,7 @@ impl Field {
 
     /// Produces the name of the enum variant for the field
     pub(crate) fn enum_variant_name(&self, idx: usize) -> Option<TokenStream> {
-        if self.infallible {
+        if self.skip || self.infallible {
             return None;
         }
 
@@ -143,10 +150,16 @@ impl Field {
 
     /// Produces the a line for the `inventory` function
     /// of the form
-    /// items.push(...);
+    /// items.push(...); // (if this is a FromEnvVar)
     /// or
-    /// items.extend(...);
+    /// items.extend(...); // (if this is a FromEnv)
+    /// or
+    /// // nothing if this is a skip
     pub(crate) fn expand_env_item_info(&self) -> TokenStream {
+        if self.skip {
+            return quote! {};
+        }
+
         let description = self.desc.clone().unwrap_or_default();
         let optional = self.optional;
 
@@ -197,9 +210,19 @@ impl Field {
 
         // // OR
         // let field_name =  FromEnv::from_env().map_err()?;
+
+        // // OR
+        // let field_name = Default::default();
+
         //```
         let variant = self.enum_variant_name(idx);
         let field_name = self.field_name(idx);
+
+        if self.skip {
+            return quote! {
+                let #field_name = Default::default();
+            };
+        }
 
         let fn_invoc = if let Some(ref env_var) = self.env_var {
             quote! { FromEnvVar::from_env_var(#env_var) }

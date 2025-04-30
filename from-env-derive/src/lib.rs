@@ -1,7 +1,7 @@
 use proc_macro::TokenStream as Ts;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, parse_macro_input};
+use syn::{parse_macro_input, DeriveInput};
 
 mod field;
 use field::Field;
