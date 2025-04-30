@@ -431,7 +431,8 @@ pub trait FromEnvVar: core::fmt::Debug + Sized + 'static {
     /// Load the primitive from the environment at the given variable. If the
     /// variable is unset or empty, return the default value.
     ///
-
+    /// This function will return an error if the environment variable is set
+    /// but cannot be parsed.
     fn from_env_var_or(env_var: &str, default: Self) -> Result<Self, FromEnvErr<Self::Error>> {
         match Self::from_env_var(env_var) {
             Ok(v) => Ok(v),
