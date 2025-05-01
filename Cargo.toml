@@ -21,7 +21,7 @@ tracing-core = "0.1.33"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json", "registry"] }
 
 # OTLP
-opentelemetry_sdk = "0.28.0"
+opentelemetry_sdk = "0.29.0"
 opentelemetry = "0.28.0"
 opentelemetry-otlp = "0.28.0"
 opentelemetry-semantic-conventions = { version = "0.28.0", features = ["semconv_experimental"] }
