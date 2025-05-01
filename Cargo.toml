@@ -30,7 +30,7 @@ url = "2.5.4"
 
 # Metrics
 metrics = "0.24.1"
-metrics-exporter-prometheus = "0.16.2"
+metrics-exporter-prometheus = "0.17.0"
 
 # Slot Calc
 chrono = "0.4.40"
