@@ -8,17 +8,31 @@ use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 /// returns a list of all environment variables that are required to load the
 /// struct.
 ///
-/// The macro also generates a `__EnvError` type that captures errors that can
+/// The macro also generates a `____EnvError` type that captures errors that can
 /// occur when trying to create an instance of the struct from environment
 /// variables. This error type is used in the `FromEnv` trait implementation.
+///
+/// ## [`FromEnv`] vs [`FromEnvVar`]
+///
+/// While [`FromEnvVar`] deals with loading simple types from the environment,
+/// [`FromEnv`] is for loading complex types. It builds a struct from the
+/// environment, usually be delegating each field to a [`FromEnvVar`] or
+/// [`FromEnv`] implementation.
+///
+/// When using the derive macro, the props of the struct must implement
+/// [`FromEnv`] or [`FromEnvVar`]. Props that implement [`FromEnv`] contain all
+/// the information needed to load the struct from the environment. Props
+/// that implement [`FromEnvVar`] need additional information via attributes.
 ///
 /// ## Attributes
 ///
 /// The macro supports the following attributes:
-/// - `var = ""`: The name of the environment variable. This is required if the
-///   prop implements [`FromEnvVar`].
-/// - `desc = ""`: A description of the environment variable. This is required
-///   if the prop implements [`FromEnvVar`].
+/// - `var = ""`: The name of the environment variable. **This is required if
+///   the prop implements [`FromEnvVar`] and forbidden if the prop implements
+///   [`FromEnv`].**
+/// - `desc = ""`: A description of the environment variable. **This is required
+///   if the prop implements [`FromEnvVar`] and forbidden if the prop
+///   implements [`FromEnv`].**
 /// - `optional`: Marks the prop as optional. This is currently only used in the
 ///   generated `fn inventory`, and is informational.
 /// - `infallible`: Marks the prop as infallible. This means that the prop
@@ -78,10 +92,20 @@ use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 ///     maybe_not_needed: Option<String>,
 /// }
 ///
-/// // The `FromEnv` trait is implemented for the struct, and the struct can
+/// #[derive(Debug, FromEnv)]
+/// pub struct MyBiggerCfg {
+///     #[from_env(var = "BIGGGG_CONFIGGGG", desc = "A big config", infallible)]
+///     pub big_config: String,
+///
+///     // Note that becuase `MyCfg` implements `FromEnv`, we do not need to
+///     // specify the `var` and `desc` attributes.
+///     pub little_config: MyCfg,
+/// }
+///
+/// // The [`FromEnv`] trait is implemented for the struct, and the struct can
 /// // be loaded from the environment.
 /// # fn use_it() {
-/// if let Err(missing) = MyCfg::check_inventory() {
+/// if let Err(missing) = MyBiggerCfg::check_inventory() {
 ///     println!("Missing environment variables:");
 ///     for var in missing {
 ///         println!("{}: {}", var.var, var.description);
@@ -90,7 +114,7 @@ use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 /// # }
 /// ```
 ///
-/// This will generate a `FromEnv` implementation for the struct, and a
+/// This will generate a [`FromEnv`] implementation for the struct, and a
 /// `MyCfgEnvError` type that is used to represent errors that can occur when
 /// loading from the environment. The error generated will look like this:
 ///
@@ -104,6 +128,8 @@ use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 ///
 /// [`Infallible`]: std::convert::Infallible
 /// [`SlotCalculator`]: crate::utils::SlotCalculator
+/// [`FromEnv`]: crate::utils::from_env::FromEnv
+/// [`FromEnvVar`]: crate::utils::from_env::FromEnvVar
 pub use init4_from_env_derive::FromEnv;
 
 /// Details about an environment variable. This is used to generate
