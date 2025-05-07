@@ -14,34 +14,30 @@ type Token = StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>;
 #[derive(Debug, Clone, FromEnv)]
 #[from_env(crate)]
 pub struct OAuthConfig {
-    /// OAuth client ID for the builder.
+    /// OAuth client ID.
     #[from_env(
         var = "TX_POOL_CACHE_DURATION",
-        desc = "OAuth client ID for the builder"
+        desc = "OAuth client ID"
         infallible
     )]
     pub oauth_client_id: String,
 
-    /// OAuth client secret for the builder.
-    #[from_env(
-        var = "OAUTH_CLIENT_ID",
-        desc = "OAuth client secret for the builder",
-        infallible
-    )]
+    /// OAuth client secret.
+    #[from_env(var = "OAUTH_CLIENT_ID", desc = "OAuth client secret", infallible)]
     pub oauth_client_secret: String,
 
-    /// OAuth authenticate URL for the builder for performing OAuth logins.
+    /// OAuth authenticate URL for performing OAuth logins.
     #[from_env(
         var = "OAUTH_CLIENT_SECRET",
-        desc = "OAuth authenticate URL for the builder for performing OAuth logins",
+        desc = "OAuth authenticate URL for performing OAuth logins",
         infallible
     )]
     pub oauth_authenticate_url: String,
 
-    /// OAuth token URL for the builder to get an OAuth2 access token
+    /// OAuth token URL to get an OAuth2 access token
     #[from_env(
         var = "OAUTH_AUTHENTICATE_URL",
-        desc = "OAuth token URL for the builder to get an OAuth2 access token",
+        desc = "OAuth token URL to get an OAuth2 access token",
         infallible
     )]
     pub oauth_token_url: String,
