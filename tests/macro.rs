@@ -13,6 +13,9 @@ pub struct MyCfg {
     #[from_env(var = "PERFECT", desc = "A bold and neat string", infallible)]
     pub strings_cannot_fail: String,
 
+    #[from_env(var = "COW", desc = "Cow<str>", infallible)]
+    pub cow: std::borrow::Cow<'static, str>,
+
     #[from_env(
         var = "MAYBE_NOT_NEEDED",
         desc = "This is an optional string",
@@ -31,12 +34,12 @@ pub struct MyTupleCfg(
 #[test]
 fn basic_inventory() {
     let inv = MyCfg::inventory();
-    assert_eq!(inv.len(), 4);
+    assert_eq!(inv.len(), 5);
 }
 
 #[test]
 fn nested_inventory() {
     let inv = MyTupleCfg::inventory();
-    assert_eq!(inv.len(), 5);
+    assert_eq!(inv.len(), 6);
     dbg!(inv);
 }

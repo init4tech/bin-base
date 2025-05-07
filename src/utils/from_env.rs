@@ -371,7 +371,7 @@ where
 impl<T, U> FromEnv for std::borrow::Cow<'static, U>
 where
     T: FromEnv,
-    U: std::borrow::ToOwned<Owned = T> + core::fmt::Debug,
+    U: std::borrow::ToOwned<Owned = T> + core::fmt::Debug + ?Sized,
 {
     type Error = T::Error;
 
@@ -538,7 +538,7 @@ where
 impl<T, U> FromEnvVar for std::borrow::Cow<'static, U>
 where
     T: FromEnvVar,
-    U: std::borrow::ToOwned<Owned = T> + core::fmt::Debug,
+    U: std::borrow::ToOwned<Owned = T> + core::fmt::Debug + ?Sized,
 {
     type Error = T::Error;
 
@@ -639,13 +639,13 @@ impl FromEnvVar for bool {
 
 #[cfg(test)]
 mod test {
-    use std::time::Duration;
+    use std::{borrow::Cow, time::Duration};
 
     use super::*;
 
     fn set<T>(env: &str, val: &T)
     where
-        T: ToString,
+        T: ToString + ?Sized,
     {
         std::env::set_var(env, val.to_string());
     }
@@ -719,5 +719,13 @@ mod test {
         );
 
         test_expect_err::<u8, _>("U8_", "", FromEnvErr::empty("U8_"));
+    }
+
+    #[test]
+    fn is_cow_str_from_env_var() {
+        let s = "hello";
+        set("COW", s);
+        let res: Cow<'static, str> = Cow::from_env_var("COW").unwrap();
+        assert_eq!(res, Cow::<'static, str>::Owned(s.to_owned()));
     }
 }
