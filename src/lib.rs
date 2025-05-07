@@ -24,6 +24,10 @@ pub mod utils {
     /// OpenTelemetry utilities.
     pub mod otlp;
 
+    /// OAuth2 utilities.
+    #[cfg(feature = "oauth")]
+    pub mod oauth;
+
     /// [`FromEnv`], [`FromEnvVar`] traits and related utilities.
     ///
     /// [`FromEnv`]: from_env::FromEnv
@@ -40,6 +44,7 @@ pub mod utils {
 
 /// Re-exports of common dependencies.
 pub mod deps {
+    pub use eyre;
     pub use metrics;
     pub use opentelemetry;
     pub use opentelemetry_otlp;

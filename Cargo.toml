@@ -35,19 +35,24 @@ metrics-exporter-prometheus = "0.17.0"
 # Slot Calc
 chrono = "0.4.40"
 
+# Oauth
+oauth2 = { version = "4.4.2", optional = true }
+tokio = { version = "1.43.0", features = ["macros"], optional = true}
+
 # Other
 thiserror = "2.0.11"
 alloy = { version = "0.12.6", optional = true, default-features = false, features = ["std"] }
 serde = { version = "1", features = ["derive"] }
+eyre = "0.6.12"
 
 [dev-dependencies]
 ajj = "0.3.1"
 axum = "0.8.1"
 serial_test = "3.2.0"
 signal-hook = "0.3.17"
-tokio = { version = "1.43.0", features = ["macros"] }
 
 [features]
-default = ["alloy"]
+default = ["alloy", "perms", "oauth"]
 alloy = ["dep:alloy"]
 perms = []
+oauth = ["dep:oauth2", "dep:tokio"]
