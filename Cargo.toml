@@ -37,8 +37,13 @@ chrono = "0.4.40"
 
 # Other
 thiserror = "2.0.11"
-alloy = { version = "0.12.6", optional = true, default-features = false, features = ["std"] }
+alloy = { version = "0.12.6", optional = true, default-features = false, features = ["std", "signer-aws", "signer-local", "consensus", "network"] }
 serde = { version = "1", features = ["derive"] }
+async-trait = { version = "0.1.80", optional = true }
+
+# AWS
+aws-config = { version = "1.1.7", optional = true }
+aws-sdk-kms = { version = "1.15.0", optional = true }
 
 [dev-dependencies]
 ajj = "0.3.1"
@@ -49,5 +54,5 @@ tokio = { version = "1.43.0", features = ["macros"] }
 
 [features]
 default = ["alloy"]
-alloy = ["dep:alloy"]
+alloy = ["dep:alloy", "dep:async-trait", "dep:aws-config", "dep:aws-sdk-kms"]
 perms = []
