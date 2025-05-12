@@ -61,24 +61,6 @@ impl Drop for OtelGuard {
     }
 }
 
-/// Otlp parse error.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OtlpParseError(String);
-
-impl From<String> for OtlpParseError {
-    fn from(s: String) -> Self {
-        Self(s)
-    }
-}
-
-impl core::fmt::Display for OtlpParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("invalid OTLP protocol: {}", self.0))
-    }
-}
-
-impl core::error::Error for OtlpParseError {}
-
 /// Otel configuration. This struct is intended to be loaded from the env vars
 ///
 /// The env vars it checks are:
@@ -139,7 +121,7 @@ impl FromEnv for OtelConfig {
 
     fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
         // load endpoint from env. ignore empty values (shortcut return None), parse, and print the error if any using inspect_err
-        let endpoint = Url::from_env_var(OTEL_ENDPOINT).inspect_err(|e| eprintln!("{e}"))?;
+        let endpoint = Url::from_env_var(OTEL_ENDPOINT)?;
 
         let level = tracing::Level::from_env_var(OTEL_LEVEL).unwrap_or(tracing::Level::DEBUG);
 

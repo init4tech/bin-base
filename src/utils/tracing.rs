@@ -55,6 +55,7 @@ pub fn init_tracing() -> Option<OtelGuard> {
         install_fmt!(registry);
         Some(guard)
     } else {
+        tracing::debug!("No OTEL config found, using default tracing");
         install_fmt!(registry);
         None
     }
