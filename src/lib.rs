@@ -18,11 +18,9 @@ pub mod perms;
 
 /// Signet utilities.
 pub mod utils {
-    /// Prometheus metrics utilities.
-    pub mod metrics;
-
-    /// OpenTelemetry utilities.
-    pub mod otlp;
+    /// Slot calculator for determining the current slot and timepoint within a
+    /// slot.
+    pub mod calc;
 
     /// [`FromEnv`], [`FromEnvVar`] traits and related utilities.
     ///
@@ -30,16 +28,18 @@ pub mod utils {
     /// [`FromEnvVar`]: from_env::FromEnvVar
     pub mod from_env;
 
-    /// Tracing utilities.
-    pub mod tracing;
+    /// Prometheus metrics utilities.
+    pub mod metrics;
 
-    /// Slot calculator for determining the current slot and timepoint within a
-    /// slot.
-    pub mod calc;
+    /// OpenTelemetry utilities.
+    pub mod otlp;
 
     #[cfg(feature = "alloy")]
     /// Signer using a local private key or AWS KMS key.
     pub mod signer;
+
+    /// Tracing utilities.
+    pub mod tracing;
 }
 
 /// Re-exports of common dependencies.
