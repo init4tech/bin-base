@@ -36,6 +36,10 @@ pub mod utils {
     /// Slot calculator for determining the current slot and timepoint within a
     /// slot.
     pub mod calc;
+
+    #[cfg(feature = "alloy")]
+    /// Signer using a local private key or AWS KMS key.
+    pub mod signer;
 }
 
 /// Re-exports of common dependencies.
