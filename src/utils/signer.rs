@@ -69,13 +69,19 @@ pub enum LocalOrAws {
 pub enum SignerError {
     /// Error during [`AwsSigner`] instantiation
     #[error("failed to connect AWS signer: {0}")]
-    AwsSigner(#[from] AwsSignerError),
+    AwsSigner(#[from] Box<AwsSignerError>),
     /// Error loading the private key
     #[error("failed to load private key: {0}")]
     Wallet(#[from] LocalSignerError),
     /// Error parsing hex
     #[error("failed to parse hex: {0}")]
     Hex(#[from] alloy::hex::FromHexError),
+}
+
+impl From<AwsSignerError> for SignerError {
+    fn from(err: AwsSignerError) -> Self {
+        SignerError::AwsSigner(Box::new(err))
+    }
 }
 
 impl LocalOrAws {
