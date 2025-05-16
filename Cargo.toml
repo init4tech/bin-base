@@ -35,19 +35,26 @@ metrics-exporter-prometheus = "0.17.0"
 # Slot Calc
 chrono = "0.4.40"
 
+# OAuth
+oauth2 = { version = "5.0.0", optional = true }
+tokio = { version = "1.36.0", optional = true }
+
 # Other
 thiserror = "2.0.11"
 alloy = { version = "0.12.6", optional = true, default-features = false, features = ["std", "signer-aws", "signer-local", "consensus", "network"] }
 serde = { version = "1", features = ["derive"] }
 async-trait = { version = "0.1.80", optional = true }
 
+
 # AWS
 aws-config = { version = "1.1.7", optional = true }
 aws-sdk-kms = { version = "1.15.0", optional = true }
+reqwest = { version = "0.12.15", optional = true }
 
 [dev-dependencies]
 ajj = "0.3.1"
 axum = "0.8.1"
+eyre = "0.6.12"
 serial_test = "3.2.0"
 signal-hook = "0.3.17"
 tokio = { version = "1.43.0", features = ["macros"] }
@@ -55,4 +62,9 @@ tokio = { version = "1.43.0", features = ["macros"] }
 [features]
 default = ["alloy"]
 alloy = ["dep:alloy", "dep:async-trait", "dep:aws-config", "dep:aws-sdk-kms"]
-perms = []
+perms = ["dep:oauth2", "dep:tokio", "dep:reqwest"]
+
+[[example]]
+name = "oauth"
+path = "examples/oauth.rs"
+required-features = ["perms"]
