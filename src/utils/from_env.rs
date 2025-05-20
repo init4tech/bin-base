@@ -1,3 +1,7 @@
+use signet_constants::{
+    HostConstants, RollupConstants, SignetConstants, SignetEnvironmentConstants,
+    SignetSystemConstants,
+};
 use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 
 /// The `derive(FromEnv)` macro.
@@ -609,7 +613,12 @@ impl_for_parseable!(
     i128,
     isize,
     url::Url,
-    tracing::Level
+    tracing::Level,
+    SignetConstants,
+    SignetEnvironmentConstants,
+    SignetSystemConstants,
+    HostConstants,
+    RollupConstants
 );
 
 #[cfg(feature = "alloy")]
