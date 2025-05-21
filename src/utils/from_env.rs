@@ -613,41 +613,7 @@ impl_for_parseable!(
     i128,
     isize,
     url::Url,
-    tracing::Level
-);
-
-/// EnvItemInfo for .env variable holding chain name
-/// Used to implement FromEnv for SignetConstants type structs
-/// that can be instantiated from a single chain name
-static CHAIN_NAME: EnvItemInfo = EnvItemInfo {
-    var: "CHAIN_NAME",
-    description: "The name of the chain, e.g. `pecorino`",
-    optional: false,
-};
-
-macro_rules! impl_from_chain {
-    ($($t:ty),*) => {
-        $(
-            // first, impl FromEnvVar for the type
-            impl_for_parseable!($t);
-
-            // next, impl FromEnv using FromEnvVar using the CHAIN_NAME env var
-            impl FromEnv for $t {
-                type Error = <$t as FromStr>::Err;
-
-                fn inventory() -> Vec<&'static EnvItemInfo> {
-                    vec![&CHAIN_NAME]
-                }
-
-                fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
-                    Self::from_env_var(CHAIN_NAME.var)
-                }
-            }
-        )*
-    }
-}
-
-impl_from_chain!(
+    tracing::Level,
     SignetConstants,
     SignetEnvironmentConstants,
     SignetSystemConstants,
