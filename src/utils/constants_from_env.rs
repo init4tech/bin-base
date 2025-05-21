@@ -4,7 +4,7 @@ use signet_constants::{
     HostConstants, ParseChainError, PredeployTokens, RollupConstants, SignetConstants,
     SignetEnvironmentConstants, SignetSystemConstants,
 };
-use std::{num::ParseIntError, borrow::Cow};
+use std::{borrow::Cow, num::ParseIntError};
 
 /// EnvItemInfo for .env variable holding chain name
 /// Used to implement FromEnv for SignetConstants type structs
@@ -135,19 +135,17 @@ impl FromEnv for RollupConstants {
                     FromEnvErr::ParseError(_) => Err(e.into()),
                     // if the chain name is empty or missing,
                     // instantiate each prop from env vars
-                    FromEnvErr::EnvError(_, _) | FromEnvErr::Empty(_) => {
-                        Ok(RollupConstants::new(
-                            u64::from_env_var(ROLLUP_CHAIN_ID)?,
-                            Address::from_env_var(ROLLUP_ORDERS)?,
-                            Address::from_env_var(ROLLUP_PASSAGE)?,
-                            Address::from_env_var(ROLLUP_BASE_FEE_RECIPIENT)?,
-                            PredeployTokens::new(
-                                Address::from_env_var(ROLLUP_USDC)?,
-                                Address::from_env_var(ROLLUP_USDT)?,
-                                Address::from_env_var(ROLLUP_WBTC)?,
-                            ),
-                        ))
-                    }
+                    FromEnvErr::EnvError(_, _) | FromEnvErr::Empty(_) => Ok(RollupConstants::new(
+                        u64::from_env_var(ROLLUP_CHAIN_ID)?,
+                        Address::from_env_var(ROLLUP_ORDERS)?,
+                        Address::from_env_var(ROLLUP_PASSAGE)?,
+                        Address::from_env_var(ROLLUP_BASE_FEE_RECIPIENT)?,
+                        PredeployTokens::new(
+                            Address::from_env_var(ROLLUP_USDC)?,
+                            Address::from_env_var(ROLLUP_USDT)?,
+                            Address::from_env_var(ROLLUP_WBTC)?,
+                        ),
+                    )),
                 }
             }
         }
@@ -217,21 +215,19 @@ impl FromEnv for HostConstants {
                     FromEnvErr::ParseError(_) => Err(e.into()),
                     // if the chain name is empty or missing,
                     // instantiate each prop from env vars
-                    FromEnvErr::EnvError(_, _) | FromEnvErr::Empty(_) => {
-                        Ok(HostConstants::new(
-                            u64::from_env_var(HOST_CHAIN_ID)?,
-                            u64::from_env_var(HOST_DEPLOY_HEIGHT)?,
-                            Address::from_env_var(HOST_ZENITH)?,
-                            Address::from_env_var(HOST_ORDERS)?,
-                            Address::from_env_var(HOST_PASSAGE)?,
-                            Address::from_env_var(HOST_TRANSACTOR)?,
-                            PredeployTokens::new(
-                                Address::from_env_var(HOST_USDC)?,
-                                Address::from_env_var(HOST_USDT)?,
-                                Address::from_env_var(HOST_WBTC)?,
-                            ),
-                        ))
-                    }
+                    FromEnvErr::EnvError(_, _) | FromEnvErr::Empty(_) => Ok(HostConstants::new(
+                        u64::from_env_var(HOST_CHAIN_ID)?,
+                        u64::from_env_var(HOST_DEPLOY_HEIGHT)?,
+                        Address::from_env_var(HOST_ZENITH)?,
+                        Address::from_env_var(HOST_ORDERS)?,
+                        Address::from_env_var(HOST_PASSAGE)?,
+                        Address::from_env_var(HOST_TRANSACTOR)?,
+                        PredeployTokens::new(
+                            Address::from_env_var(HOST_USDC)?,
+                            Address::from_env_var(HOST_USDT)?,
+                            Address::from_env_var(HOST_WBTC)?,
+                        ),
+                    )),
                 }
             }
         }
@@ -337,12 +333,10 @@ impl FromEnv for SignetConstants {
                     FromEnvErr::ParseError(_) => Err(e.into()),
                     // if the chain name is empty or missing,
                     // instantiate each prop from env vars
-                    FromEnvErr::EnvError(_, _) | FromEnvErr::Empty(_) => {
-                        Ok(SignetConstants::new(
-                            SignetSystemConstants::from_env()?,
-                            SignetEnvironmentConstants::from_env()?,
-                        ))
-                    }
+                    FromEnvErr::EnvError(_, _) | FromEnvErr::Empty(_) => Ok(SignetConstants::new(
+                        SignetSystemConstants::from_env()?,
+                        SignetEnvironmentConstants::from_env()?,
+                    )),
                 }
             }
         }
