@@ -133,9 +133,9 @@ impl FromEnv for RollupConstants {
                 match e {
                     // if chain name is present but malformed, propagate the error
                     FromEnvErr::ParseError(_) => Err(e.into()),
-                    // it's chain name is empty OR missing
+                    // if the chain name is empty or missing,
+                    // instantiate each prop from env vars
                     FromEnvErr::EnvError(_, _) | FromEnvErr::Empty(_) => {
-                        // instantiate each prop from env vars
                         Ok(RollupConstants::new(
                             u64::from_env_var(ROLLUP_CHAIN_ID)?,
                             Address::from_env_var(ROLLUP_ORDERS)?,
@@ -215,9 +215,9 @@ impl FromEnv for HostConstants {
                 match e {
                     // if chain name is present but malformed, propagate the error
                     FromEnvErr::ParseError(_) => Err(e.into()),
-                    // it's chain name is empty OR missing
+                    // if the chain name is empty or missing,
+                    // instantiate each prop from env vars
                     FromEnvErr::EnvError(_, _) | FromEnvErr::Empty(_) => {
-                        // instantiate each prop from env vars
                         Ok(HostConstants::new(
                             u64::from_env_var(HOST_CHAIN_ID)?,
                             u64::from_env_var(HOST_DEPLOY_HEIGHT)?,
@@ -269,9 +269,9 @@ impl FromEnv for SignetEnvironmentConstants {
                 match e {
                     // if chain name is present but malformed, propagate the error
                     FromEnvErr::ParseError(_) => Err(e.into()),
-                    // it's chain name is empty OR missing
+                    // if the chain name is empty or missing,
+                    // instantiate each prop from env vars
                     FromEnvErr::EnvError(_, _) | FromEnvErr::Empty(_) => {
-                        // instantiate each prop from env vars
                         Ok(SignetEnvironmentConstants::new(
                             std::borrow::Cow::from_env_var(SIGNET_HOST_NAME)
                                 .map_err(|e| e.infallible_into::<ConstantsFromEnvError>())?,
@@ -304,9 +304,9 @@ impl FromEnv for SignetSystemConstants {
                 match e {
                     // if chain name is present but malformed, propagate the error
                     FromEnvErr::ParseError(_) => Err(e.into()),
-                    // it's chain name is empty OR missing
+                    // if the chain name is empty or missing,
+                    // instantiate each prop from env vars
                     FromEnvErr::EnvError(_, _) | FromEnvErr::Empty(_) => {
-                        // instantiate each prop from env vars
                         Ok(SignetSystemConstants::new(
                             HostConstants::from_env()?,
                             RollupConstants::from_env()?,
@@ -335,9 +335,9 @@ impl FromEnv for SignetConstants {
                 match e {
                     // if chain name is present but malformed, propagate the error
                     FromEnvErr::ParseError(_) => Err(e.into()),
-                    // it's chain name is empty OR missing
+                    // if the chain name is empty or missing,
+                    // instantiate each prop from env vars
                     FromEnvErr::EnvError(_, _) | FromEnvErr::Empty(_) => {
-                        // instantiate each prop from env vars
                         Ok(SignetConstants::new(
                             SignetSystemConstants::from_env()?,
                             SignetEnvironmentConstants::from_env()?,
