@@ -4,14 +4,14 @@ use signet_constants::{
     HostConstants, ParseChainError, PredeployTokens, RollupConstants, SignetConstants,
     SignetEnvironmentConstants, SignetSystemConstants,
 };
-use std::num::ParseIntError;
+use std::{num::ParseIntError, borrow::Cow};
 
 /// EnvItemInfo for .env variable holding chain name
 /// Used to implement FromEnv for SignetConstants type structs
 /// that can be instantiated from a single chain name
 const CHAIN_NAME: EnvItemInfo = EnvItemInfo {
     var: "CHAIN_NAME",
-    description: "The name of the chain, e.g. `pecorino`. If present, known constants for the chain will be loaded. If not present, the constants will be loaded from the environment variables.",
+    description: "The name of the chain, e.g. `pecorino`. If CHAIN_NAME is present, the known, hard-coded constants for the chain will be loaded from the SDK. If CHAIN_NAME is not present, each constant will be loaded from environment variables.",
     optional: true,
 };
 
@@ -273,11 +273,11 @@ impl FromEnv for SignetEnvironmentConstants {
                     // instantiate each prop from env vars
                     FromEnvErr::EnvError(_, _) | FromEnvErr::Empty(_) => {
                         Ok(SignetEnvironmentConstants::new(
-                            std::borrow::Cow::from_env_var(SIGNET_HOST_NAME)
+                            Cow::from_env_var(SIGNET_HOST_NAME)
                                 .map_err(|e| e.infallible_into::<ConstantsFromEnvError>())?,
-                            std::borrow::Cow::from_env_var(SIGNET_ROLLUP_NAME)
+                            Cow::from_env_var(SIGNET_ROLLUP_NAME)
                                 .map_err(|e| e.infallible_into::<ConstantsFromEnvError>())?,
-                            std::borrow::Cow::from_env_var(SIGNET_TRANSACTION_CACHE)
+                            Cow::from_env_var(SIGNET_TRANSACTION_CACHE)
                                 .map_err(|e| e.infallible_into::<ConstantsFromEnvError>())?,
                         ))
                     }
