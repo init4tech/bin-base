@@ -28,6 +28,7 @@ pub mod utils {
     /// [`FromEnvVar`]: from_env::FromEnvVar
     pub mod from_env;
 
+    #[cfg(feature = "alloy")]
     /// SignetConstants variables FromEnv
     pub mod constants_from_env;
 
