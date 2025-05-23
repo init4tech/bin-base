@@ -45,7 +45,7 @@ tokio = { version = "1.36.0", optional = true }
 
 # Other
 thiserror = "2.0.11"
-alloy = { version = "0.12.6", optional = true, default-features = false, features = ["std", "signer-aws", "signer-local", "consensus", "network"] }
+alloy = { version = "1.0.5", optional = true, default-features = false, features = ["std", "signer-aws", "signer-local", "consensus", "network"] }
 serde = { version = "1", features = ["derive"] }
 async-trait = { version = "0.1.80", optional = true }
 
