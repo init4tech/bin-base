@@ -17,7 +17,7 @@ init4-from-env-derive =  "0.1.0"
 
 
 # Signet 
-signet-constants = { version = "0.1.0" }
+signet-constants = { git = "https://github.com/init4tech/signet-sdk", rev = "bd183b627dcb0eb682da801093b13f1f8311446b" }
 
 # Tracing
 tracing = "0.1.40"
