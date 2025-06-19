@@ -17,10 +17,8 @@ init4-from-env-derive =  "0.1.0"
 
 
 # Signet
-signet-constants = { version = "0.2.0" }
-signet-types = { version = "0.2.0" }
-signet-tx-cache = { version = "0.2.0" }
-eyre = "0.6.12"
+signet-constants = { version = "0.3.0", optional = true }
+signet-tx-cache = { version = "0.3.0", optional = true }
 
 # Tracing
 tracing = "0.1.40"
@@ -51,6 +49,8 @@ thiserror = "2.0.11"
 alloy = { version = "1.0.5", optional = true, default-features = false, features = ["std", "signer-aws", "signer-local", "consensus", "network"] }
 serde = { version = "1", features = ["derive"] }
 async-trait = { version = "0.1.80", optional = true }
+eyre = { version = "0.6.12", optional = true }
+
 
 # AWS
 aws-config = { version = "1.1.7", optional = true }
@@ -68,7 +68,7 @@ tokio = { version = "1.43.0", features = ["macros"] }
 [features]
 default = ["alloy"]
 alloy = ["dep:alloy", "dep:async-trait", "dep:aws-config", "dep:aws-sdk-kms"]
-perms = ["dep:oauth2", "dep:tokio", "dep:reqwest"]
+perms = ["dep:oauth2", "dep:tokio", "dep:reqwest", "dep:signet-tx-cache", "dep:eyre"]
 
 [[example]]
 name = "oauth"
