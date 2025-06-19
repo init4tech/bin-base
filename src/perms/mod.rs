@@ -6,3 +6,5 @@ pub use config::{SlotAuthzConfig, SlotAuthzConfigEnvError};
 
 pub(crate) mod oauth;
 pub use oauth::{Authenticator, OAuthConfig, SharedToken};
+
+pub mod tx_cache;

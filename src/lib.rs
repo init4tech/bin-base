@@ -12,7 +12,7 @@
 #![deny(unused_must_use, rust_2018_idioms)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-#[cfg(feature = "perms")]
+// #[cfg(feature = "perms")]
 /// Permissioning and authorization utilities for Signet builders.
 pub mod perms;
 
