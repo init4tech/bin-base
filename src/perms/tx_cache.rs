@@ -41,6 +41,9 @@ impl BuilderTxCache {
         Self { tx_cache, token }
     }
 
+    pub fn new
+
+
     /// Get a reference to the transaction cache client.
     pub const fn tx_cache(&self) -> &TxCache {
         &self.tx_cache
