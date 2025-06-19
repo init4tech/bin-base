@@ -15,9 +15,8 @@ repository = "https://github.com/init4tech/bin-base"
 [dependencies]
 init4-from-env-derive =  "0.1.0"
 
-
 # Signet
-signet-constants = { version = "0.3.0", optional = true }
+signet-constants = { version = "0.3.0" }
 signet-tx-cache = { version = "0.3.0", optional = true }
 
 # Tracing
@@ -51,7 +50,6 @@ serde = { version = "1", features = ["derive"] }
 async-trait = { version = "0.1.80", optional = true }
 eyre = { version = "0.6.12", optional = true }
 
-
 # AWS
 aws-config = { version = "1.1.7", optional = true }
 aws-sdk-kms = { version = "1.15.0", optional = true }
@@ -73,4 +71,9 @@ perms = ["dep:oauth2", "dep:tokio", "dep:reqwest", "dep:signet-tx-cache", "dep:e
 [[example]]
 name = "oauth"
 path = "examples/oauth.rs"
+required-features = ["perms"]
+
+[[example]]
+name = "tx_cache"
+path = "examples/tx_cache.rs"
 required-features = ["perms"]
