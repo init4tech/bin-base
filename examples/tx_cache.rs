@@ -12,7 +12,7 @@ async fn main() -> eyre::Result<()> {
     let _jh = authenticator.spawn();
 
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-    dbg!(token.read());
+    dbg!(token.secret().await.unwrap());
 
     let tx_cache = BuilderTxCache::new(TxCache::pecorino(), token);
 
