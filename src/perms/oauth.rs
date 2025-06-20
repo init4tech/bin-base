@@ -4,13 +4,18 @@ use crate::{
     deps::tracing::{error, info},
     utils::from_env::FromEnv,
 };
+use core::fmt;
 use oauth2::{
     basic::{BasicClient, BasicTokenType},
-    AuthUrl, ClientId, ClientSecret, EmptyExtraTokenFields, EndpointNotSet, EndpointSet,
-    HttpClientError, RequestTokenError, StandardErrorResponse, StandardTokenResponse, TokenUrl,
+    AccessToken, AuthUrl, ClientId, ClientSecret, EmptyExtraTokenFields, EndpointNotSet,
+    EndpointSet, HttpClientError, RefreshToken, RequestTokenError, Scope, StandardErrorResponse,
+    StandardTokenResponse, TokenResponse, TokenUrl,
 };
 use std::sync::{Arc, Mutex};
-use tokio::task::JoinHandle;
+use tokio::{
+    sync::watch::{self, Ref},
+    task::JoinHandle,
+};
 
 type Token = StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>;
 
@@ -59,9 +64,9 @@ impl OAuthConfig {
 
 /// A shared token that can be read and written to by multiple threads.
 #[derive(Debug, Clone, Default)]
-pub struct SharedToken(Arc<Mutex<Option<Token>>>);
+pub struct OldSharedToken(Arc<Mutex<Option<Token>>>);
 
-impl SharedToken {
+impl OldSharedToken {
     /// Read the token from the shared token.
     pub fn read(&self) -> Option<Token> {
         self.0.lock().unwrap().clone()
@@ -87,8 +92,9 @@ pub struct Authenticator {
     /// Configuration
     pub config: OAuthConfig,
     client: MyOAuthClient,
-    token: SharedToken,
     reqwest: reqwest::Client,
+
+    token: watch::Sender<Option<Token>>,
 }
 
 impl Authenticator {
@@ -107,8 +113,8 @@ impl Authenticator {
         Self {
             config: config.clone(),
             client,
-            token: Default::default(),
             reqwest: rq_client,
+            token: watch::channel(None).0,
         }
     }
 
@@ -129,20 +135,20 @@ impl Authenticator {
 
     /// Returns true if there is Some token set
     pub fn is_authenticated(&self) -> bool {
-        self.token.is_authenticated()
+        self.token.borrow().is_some()
     }
 
     /// Sets the Authenticator's token to the provided value
     fn set_token(&self, token: StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>) {
-        self.token.write(token);
+        self.token.send_replace(Some(token));
     }
 
     /// Returns the currently set token
     pub fn token(&self) -> SharedToken {
-        self.token.clone()
+        self.token.subscribe().into()
     }
 
-    /// Fetches an oauth token
+    /// Fetches an oauth token.
     pub async fn fetch_oauth_token(
         &self,
     ) -> Result<
@@ -161,25 +167,158 @@ impl Authenticator {
         Ok(token_result)
     }
 
-    /// Spawns a task that periodically fetches a new token every 300 seconds.
-    pub fn spawn(self) -> JoinHandle<()> {
+    /// Create a future that contains the periodic refresh loop.
+    async fn task_future(self) {
         let interval = self.config.oauth_token_refresh_interval;
 
-        let handle: JoinHandle<()> = tokio::spawn(async move {
-            loop {
-                info!("Refreshing oauth token");
-                match self.authenticate().await {
-                    Ok(_) => {
-                        info!("Successfully refreshed oauth token");
-                    }
-                    Err(e) => {
-                        error!(%e, "Failed to refresh oauth token");
-                    }
-                };
-                let _sleep = tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
-            }
-        });
+        loop {
+            info!("Refreshing oauth token");
+            match self.authenticate().await {
+                Ok(_) => {
+                    info!("Successfully refreshed oauth token");
+                }
+                Err(e) => {
+                    error!(%e, "Failed to refresh oauth token");
+                }
+            };
+            let _sleep = tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
+        }
+    }
 
-        handle
+    /// Spawns a task that periodically fetches a new token. The refresh
+    /// interval may be configured via the
+    /// [`OAuthConfig::oauth_token_refresh_interval`] property.
+    pub fn spawn(self) -> JoinHandle<()> {
+        tokio::spawn(self.task_future())
+    }
+}
+
+/// A shared token, wrapped in a [`tokio::sync::watch`] Receiver. The token is
+/// periodically refreshed by an [`Authenticator`] task, and can be awaited
+/// for when it becomes available.
+///
+/// This allows multiple tasks to wait for the token to be available, and
+/// provides a way to check if the token is authenticated without blocking.
+/// Please consult the [`Receiver`] documentation for caveats regarding
+/// usage.
+///
+/// [`Receiver`]: tokio::sync::watch::Receiver
+#[derive(Debug, Clone)]
+pub struct SharedToken(watch::Receiver<Option<Token>>);
+
+impl From<watch::Receiver<Option<Token>>> for SharedToken {
+    fn from(inner: watch::Receiver<Option<Token>>) -> Self {
+        Self(inner)
+    }
+}
+
+impl SharedToken {
+    /// Wait for the token to be available, and get a reference to the secret.
+    ///
+    /// This is implemented using [`Receiver::wait_for`], and has the same
+    /// blocking, panics, errors, and cancel safety. However, it uses a clone
+    /// of the [`watch::Receiver`] and will not update the local view of the
+    /// channel.
+    ///
+    /// [`Receiver::wait_for`]: tokio::sync::watch::Receiver::wait_for
+    pub async fn secret(&self) -> Result<String, watch::error::RecvError> {
+        Ok(self
+            .clone()
+            .token()
+            .await?
+            .access_token()
+            .secret()
+            .to_owned())
+    }
+
+    /// Wait for the token to be available, then get a reference to it.
+    ///
+    /// This is implemented using [`Receiver::wait_for`], and has the same
+    /// blocking, panics, errors, and cancel safety. Unlike [`Self::secret`]
+    /// it is NOT implemented using a clone, and will update the local view of
+    /// the channel.
+    ///
+    /// Generally, prefer using [`Self::secret`] for simple use cases, and
+    /// this when deeper inspection of the token is required.
+    ///
+    /// [`Receiver::wait_for`]: tokio::sync::watch::Receiver::wait_for
+    pub async fn token(&mut self) -> Result<TokenRef<'_>, watch::error::RecvError> {
+        self.0.wait_for(Option::is_some).await.map(Into::into)
+    }
+
+    /// Create a future that will resolve when the token is ready.
+    ///
+    /// This is implemented using [`Receiver::wait_for`], and has the same
+    /// blocking, panics, errors, and cancel safety.
+    ///
+    /// [`Receiver::wait_for`]: tokio::sync::watch::Receiver::wait_for
+    pub async fn wait(&self) -> Result<(), watch::error::RecvError> {
+        self.clone().0.wait_for(Option::is_some).await.map(drop)
+    }
+
+    /// Borrow the current token, if available. If called before the token is
+    /// set by the authentication task, this will return `None`.
+    ///
+    /// This is implemented using [`Receiver::borrow`].
+    ///
+    /// [`Receiver::borrow`]: tokio::sync::watch::Receiver::borrow
+    pub fn borrow(&mut self) -> Ref<'_, Option<Token>> {
+        self.0.borrow()
+    }
+
+    /// Check if the background task has produced an authentication token.
+    ///
+    /// This is implemented using [`Receiver::borrow`], and checks if the
+    /// borrowed token is `Some`.
+    ///
+    /// [`Receiver::borrow`]: tokio::sync::watch::Receiver::borrow
+    pub fn is_authenticated(&self) -> bool {
+        self.0.borrow().is_some()
+    }
+}
+
+/// A reference to token data, contained in a [`SharedToken`].
+///
+/// This is implemented using [`watch::Ref`], and as a result holds a lock on
+/// the token data. It is recommended that this be dropped
+pub struct TokenRef<'a> {
+    inner: Ref<'a, Option<Token>>,
+}
+
+impl<'a> From<Ref<'a, Option<Token>>> for TokenRef<'a> {
+    fn from(inner: Ref<'a, Option<Token>>) -> Self {
+        Self { inner }
+    }
+}
+
+impl fmt::Debug for TokenRef<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TokenRef").finish_non_exhaustive()
+    }
+}
+
+impl<'a> TokenRef<'a> {
+    pub fn inner(&'a self) -> &'a Token {
+        self.inner.as_ref().unwrap()
+    }
+
+    pub fn access_token(&self) -> &AccessToken {
+        self.inner().access_token()
+    }
+
+    pub fn token_type(&self) -> &<Token as TokenResponse>::TokenType {
+        self.inner().token_type()
+    }
+
+    pub fn expires_in(&self) -> Option<std::time::Duration> {
+        self.inner().expires_in()
+    }
+
+    pub fn refresh_token(&self) -> Option<&RefreshToken> {
+        self.inner().refresh_token()
+    }
+
+    pub fn scopes(&self) -> Option<&Vec<Scope>> {
+        self.inner().scopes()
     }
 }

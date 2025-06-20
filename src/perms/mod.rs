@@ -5,7 +5,7 @@ pub(crate) mod config;
 pub use config::{SlotAuthzConfig, SlotAuthzConfigEnvError};
 
 pub(crate) mod oauth;
-pub use oauth::{Authenticator, OAuthConfig, SharedToken};
+pub use oauth::{Authenticator, OAuthConfig, OldSharedToken};
 
 /// Contains [`BuilderTxCache`] client and related types for interacting with
 /// the transaction cache.
