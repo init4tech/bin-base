@@ -82,6 +82,8 @@ impl Authenticator {
             .set_auth_uri(AuthUrl::from_url(config.oauth_authenticate_url.clone()))
             .set_token_uri(TokenUrl::from_url(config.oauth_token_url.clone()));
 
+        // NB: this is MANDATORY
+        // https://docs.rs/oauth2/latest/oauth2/#security-warning
         let rq_client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .build()
