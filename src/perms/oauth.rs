@@ -11,7 +11,6 @@ use oauth2::{
     EndpointSet, HttpClientError, RefreshToken, RequestTokenError, Scope, StandardErrorResponse,
     StandardTokenResponse, TokenResponse, TokenUrl,
 };
-use std::sync::{Arc, Mutex};
 use tokio::{
     sync::watch::{self, Ref},
     task::JoinHandle,
@@ -59,28 +58,6 @@ impl OAuthConfig {
     /// Create a new [`Authenticator`] from the provided config.
     pub fn authenticator(&self) -> Authenticator {
         Authenticator::new(self)
-    }
-}
-
-/// A shared token that can be read and written to by multiple threads.
-#[derive(Debug, Clone, Default)]
-pub struct OldSharedToken(Arc<Mutex<Option<Token>>>);
-
-impl OldSharedToken {
-    /// Read the token from the shared token.
-    pub fn read(&self) -> Option<Token> {
-        self.0.lock().unwrap().clone()
-    }
-
-    /// Write a new token to the shared token.
-    pub fn write(&self, token: Token) {
-        let mut lock = self.0.lock().unwrap();
-        *lock = Some(token);
-    }
-
-    /// Check if the token is authenticated.
-    pub fn is_authenticated(&self) -> bool {
-        self.0.lock().unwrap().is_some()
     }
 }
 
