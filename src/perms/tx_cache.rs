@@ -1,6 +1,5 @@
 use crate::perms::oauth::SharedToken;
-use eyre::{bail, Result};
-use oauth2::TokenResponse;
+use eyre::Result;
 use serde::de::DeserializeOwned;
 use signet_tx_cache::{
     client::TxCache,
@@ -53,14 +52,12 @@ impl BuilderTxCache {
 
     async fn get_inner_with_token<T: DeserializeOwned>(&self, join: &str) -> Result<T> {
         let url = self.tx_cache.url().join(join)?;
-        let Some(token) = self.token.read() else {
-            bail!("No token available for authentication");
-        };
+        let secret = self.token.secret().await?;
 
         self.tx_cache
             .client()
             .get(url)
-            .bearer_auth(token.access_token().secret())
+            .bearer_auth(secret)
             .send()
             .await
             .inspect_err(|e| warn!(%e, "Failed to get object from transaction cache"))?
