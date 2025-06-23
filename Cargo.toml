@@ -17,7 +17,7 @@ init4-from-env-derive =  "0.1.0"
 
 
 # Signet
-signet-constants = { version = "0.2.0" }
+signet-constants = { version = "0.3.0" }
 
 # Tracing
 tracing = "0.1.40"
