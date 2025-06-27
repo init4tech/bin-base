@@ -10,11 +10,12 @@ pub struct SlotAuthzConfig {
     /// number for a given timestamp.
     calc: SlotCalculator,
     /// The block query cutoff time in seconds. This is the slot second after
-    /// which requests will not be serviced. E.g. a value of 10 means that
-    /// requests will not be serviced for the last 2 seconds of any given slot.
+    /// which requests will not be serviced. E.g. For a slot duration of 12,
+    /// a value of 10 means that requests will not be serviced for the last 2 seconds
+    /// of any given slot.
     ///
-    /// On loading from env, the number will be clamped between 0 and 12, as
-    /// the slot duration is 12 seconds.
+    /// On loading from env, the number will be clamped between 0 and slot_duration,
+    /// which is generally expected to be 12 seconds.
     #[from_env(
         var = "BLOCK_QUERY_CUTOFF",
         desc = "The block query cutoff time in seconds."
@@ -24,8 +25,8 @@ pub struct SlotAuthzConfig {
     /// which requests will not be serviced. E.g. a value of 1 means that
     /// requests will not be serviced for the first second of any given slot.
     ///
-    /// On loading from env, the number will be clamped between 0 and 12, as
-    /// the slot duration is 12 seconds.
+    /// On loading from env, the number will be clamped between 0 and slot_duration, as
+    /// which is generally expected to be 12 seconds.
     #[from_env(
         var = "BLOCK_QUERY_START",
         desc = "The block query start time in seconds."
