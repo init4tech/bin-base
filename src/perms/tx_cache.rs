@@ -78,7 +78,7 @@ impl BuilderTxCache {
     }
 
     fn get_bundle_url_path(&self, bundle_id: &str) -> String {
-        format!("{}/{}", BUNDLES, bundle_id)
+        format!("{BUNDLES}/{bundle_id}")
     }
 
     /// Get a bundle from the cache by its UUID. For convenience, this method
