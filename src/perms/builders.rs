@@ -13,7 +13,7 @@ use crate::{
         from_env::{FromEnv, FromEnvErr, FromEnvVar},
     },
 };
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 fn now() -> u64 {
     chrono::Utc::now().timestamp().try_into().unwrap()
