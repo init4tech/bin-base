@@ -13,21 +13,21 @@ use crate::{
         from_env::{FromEnv, FromEnvErr, FromEnvVar},
     },
 };
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 fn now() -> u64 {
     chrono::Utc::now().timestamp().try_into().unwrap()
 }
 
 /// Possible errors when permissioning a builder.
-#[derive(Debug, thiserror::Error, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BuilderPermissionError {
-    /// Action attempt too early.
-    #[error("action attempt too early")]
+    /// Permission requested too early in the block slot.
+    #[error("permission requested too early in slot")]
     ActionAttemptTooEarly,
 
-    /// Action attempt too late.
-    #[error("action attempt too late")]
+    /// Permission requested too late in the block slot.
+    #[error("permission requested too late in slot")]
     ActionAttemptTooLate,
 
     /// Builder not permissioned for this slot.
