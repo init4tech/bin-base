@@ -17,5 +17,7 @@ async fn main() -> eyre::Result<()> {
 
     let bundles = tx_cache.get_bundles().await?;
 
+    println!("Bundles: {bundles:#?}");
+
     Ok(())
 }
