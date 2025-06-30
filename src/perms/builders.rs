@@ -171,7 +171,7 @@ impl Builders {
     /// at a specific slot, and what builder is allowed changes with each slot.
     pub fn is_builder_permissioned(&self, sub: &str) -> Result<(), BuilderPermissionError> {
         let current_slot_time = self.calc().current_timepoint_within_slot();
-        let current_builder = self.current_builder().sub;
+        let current_builder = self.current_builder().sub.clone();
 
         if current_slot_time < self.config.block_query_start() {
             tracing::debug!(current_slot_time, current_builder, "block too early");
