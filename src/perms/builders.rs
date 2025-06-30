@@ -174,11 +174,11 @@ impl Builders {
         let current_builder = self.current_builder().sub;
 
         if current_slot_time < self.config.block_query_start() {
-            debug!(current_slot_time, current_builder, "block too early");
+            tracing::debug!(current_slot_time, current_builder, "block too early");
             return Err(BuilderPermissionError::ActionAttemptTooEarly);
         }
         if current_slot_time > self.config.block_query_cutoff() {
-            debug!(current_slot_time, current_builder, "block too late");
+            tracing::debug!(current_slot_time, current_builder, "block too late");
             return Err(BuilderPermissionError::ActionAttemptTooLate);
         }
 
