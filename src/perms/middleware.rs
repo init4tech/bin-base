@@ -11,7 +11,7 @@ use core::fmt;
 use serde::Serialize;
 use std::{future::Future, pin::Pin, sync::Arc};
 use tower::{Layer, Service};
-use tracing::{error, info};
+use tracing::info;
 
 /// Possible API error responses when a builder permissioning check fails.
 #[derive(Serialize)]
@@ -142,6 +142,7 @@ where
                 builder = tracing::field::Empty,
                 permissioned_builder = this.builders.current_builder().sub(),
                 current_slot = this.builders.calc().current_slot(),
+                permissioning_error = tracing::field::Empty,
             );
 
             info!("builder permissioning check started");
@@ -153,19 +154,29 @@ where
                         span.record("builder", sub);
                         sub
                     }
-                    Err(_) => {
-                        error!("builder request has invalid header encoding");
-                        return Ok(ApiError::invalid_encoding().into_response());
+                    Err(err) => {
+                        let api_err = ApiError::invalid_encoding();
+
+                        info!(api_err = %api_err.1.message, header_err = %err, "permission denied");
+                        span.record("permissioning_error", api_err.1.message);
+
+                        return Ok(api_err.into_response());
                     }
                 },
                 None => {
-                    error!("builder request missing header");
-                    return Ok(ApiError::missing_header().into_response());
+                    let api_err = ApiError::missing_header();
+
+                    info!(api_err = %api_err.1.message, "permission denied");
+                    span.record("permissioning_error", api_err.1.message);
+
+                    return Ok(api_err.into_response());
                 }
             };
 
             if let Err(err) = this.builders.is_builder_permissioned(sub) {
-                info!(%err, %sub, "permission denied");
+                info!(api_err = %err, %sub, "permission denied");
+                span.record("permissioning_error", err.to_string());
+
                 return Ok(ApiError::permission_denied().into_response());
             }
 
