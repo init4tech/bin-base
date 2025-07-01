@@ -174,13 +174,13 @@ where
             };
 
             if let Err(err) = this.builders.is_builder_permissioned(sub) {
-                info!(api_err = %err, %sub, "permission denied");
+                info!(api_err = %err, "permission denied");
                 span.record("permissioning_error", err.to_string());
 
                 return Ok(ApiError::permission_denied().into_response());
             }
 
-            info!(%sub, current_slot = %this.builders.calc().current_slot(), "builder permissioned successfully");
+            info!(current_slot = %this.builders.calc().current_slot(), "builder permissioned successfully");
 
             this.inner.call(req).await
         })
