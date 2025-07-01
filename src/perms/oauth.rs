@@ -147,7 +147,7 @@ impl Authenticator {
     }
 
     /// Get a reference to the OAuth configuration.
-    pub fn config(&self) -> &OAuthConfig {
+    pub const fn config(&self) -> &OAuthConfig {
         &self.config
     }
 
