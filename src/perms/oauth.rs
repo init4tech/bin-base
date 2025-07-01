@@ -62,12 +62,12 @@ impl OAuthConfig {
 }
 
 /// A self-refreshing, periodically fetching authenticator for the block
-/// builder. This task periodically fetches a new token, and stores it in a
-/// [`SharedToken`].
+/// builder. This task periodically fetches a new token, and sends it to all
+/// active [`SharedToken`]s via a [`tokio::sync::watch`] channel..
 #[derive(Debug)]
 pub struct Authenticator {
     /// Configuration
-    pub config: OAuthConfig,
+    config: OAuthConfig,
     client: MyOAuthClient,
     reqwest: reqwest::Client,
 
@@ -146,6 +146,11 @@ impl Authenticator {
         Ok(token_result)
     }
 
+    /// Get a reference to the OAuth configuration.
+    pub fn config(&self) -> &OAuthConfig {
+        &self.config
+    }
+
     /// Create a future that contains the periodic refresh loop.
     async fn task_future(self) {
         let interval = self.config.oauth_token_refresh_interval;
@@ -212,6 +217,10 @@ impl SharedToken {
 
     /// Wait for the token to be available, then get a reference to it.
     ///
+    /// Holding this reference will block the background task from updating
+    /// the token until it is dropped, so it is recommended to drop this
+    /// reference as soon as possible.
+    ///
     /// This is implemented using [`Receiver::wait_for`], and has the same
     /// blocking, panics, errors, and cancel safety. Unlike [`Self::secret`]
     /// it is NOT implemented using a clone, and will update the local view of
@@ -238,6 +247,10 @@ impl SharedToken {
     /// Borrow the current token, if available. If called before the token is
     /// set by the authentication task, this will return `None`.
     ///
+    /// Holding this reference will block the background task from updating
+    /// the token until it is dropped, so it is recommended to drop this
+    /// reference as soon as possible.
+    ///
     /// This is implemented using [`Receiver::borrow`].
     ///
     /// [`Receiver::borrow`]: tokio::sync::watch::Receiver::borrow
@@ -247,8 +260,11 @@ impl SharedToken {
 
     /// Check if the background task has produced an authentication token.
     ///
-    /// This is implemented using [`Receiver::borrow`], and checks if the
-    /// borrowed token is `Some`.
+    /// Holding this reference will block the background task from updating
+    /// the token until it is dropped, so it is recommended to drop this
+    /// reference as soon as possible.
+    ///
+    /// This is implemented using [`Receiver::borrow`].
     ///
     /// [`Receiver::borrow`]: tokio::sync::watch::Receiver::borrow
     pub fn is_authenticated(&self) -> bool {
@@ -259,7 +275,9 @@ impl SharedToken {
 /// A reference to token data, contained in a [`SharedToken`].
 ///
 /// This is implemented using [`watch::Ref`], and as a result holds a lock on
-/// the token data. It is recommended that this be dropped
+/// the token data. Holding this reference will block the background task
+/// from updating the token until it is dropped, so it is recommended to drop
+/// this reference as soon as possible.
 pub struct TokenRef<'a> {
     inner: Ref<'a, Option<Token>>,
 }
@@ -277,26 +295,34 @@ impl fmt::Debug for TokenRef<'_> {
 }
 
 impl<'a> TokenRef<'a> {
+    /// Get a reference to the inner token.
     pub fn inner(&'a self) -> &'a Token {
         self.inner.as_ref().unwrap()
     }
 
+    /// Get a reference to the [`AccessToken`] contained in the token.
     pub fn access_token(&self) -> &AccessToken {
         self.inner().access_token()
     }
 
+    /// Get a reference to the [`TokenType`] instance contained in the token.
+    ///
+    /// [`TokenType`]: oauth2::TokenType
     pub fn token_type(&self) -> &<Token as TokenResponse>::TokenType {
         self.inner().token_type()
     }
 
+    /// Get a reference to the current token's expiration time, if it has one.
     pub fn expires_in(&self) -> Option<std::time::Duration> {
         self.inner().expires_in()
     }
 
+    /// Get a reference to the refresh token, if it exists.
     pub fn refresh_token(&self) -> Option<&RefreshToken> {
         self.inner().refresh_token()
     }
 
+    /// Get a reference to the scopes associated with the token, if any.
     pub fn scopes(&self) -> Option<&Vec<Scope>> {
         self.inner().scopes()
     }
