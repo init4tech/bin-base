@@ -5,10 +5,57 @@ use axum::{
     extract::Request,
     http::StatusCode,
     response::{IntoResponse, Response},
+    Json,
 };
 use core::fmt;
+use serde::Serialize;
 use std::{future::Future, pin::Pin, sync::Arc};
 use tower::{Layer, Service};
+use tracing::{error, info};
+
+/// Possible API error responses when a builder permissioning check fails.
+#[derive(Serialize)]
+struct ApiError {
+    /// The error itself.
+    error: &'static str,
+    /// A human-readable message describing the error.
+    message: &'static str,
+}
+
+impl ApiError {
+    /// API error for missing authentication header.
+    const fn missing_header() -> (StatusCode, Json<Self>) {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(ApiError {
+                error: "MISSING_AUTH_HEADER",
+                message: "Missing authentication header",
+            }),
+        )
+    }
+
+    /// API error for invalid header encoding.
+    const fn invalid_encoding() -> (StatusCode, Json<Self>) {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(ApiError {
+                error: "INVALID_HEADER_ENCODING",
+                message: "Invalid header encoding",
+            }),
+        )
+    }
+
+    /// API error for permission denied.
+    const fn permission_denied() -> (StatusCode, Json<Self>) {
+        (
+            StatusCode::FORBIDDEN,
+            Json(ApiError {
+                error: "PERMISSION_DENIED",
+                message: "Builder permission denied",
+            }),
+        )
+    }
+}
 
 /// A middleware layer that can check if a builder is allowed to perform an action
 /// during the current request.
@@ -90,22 +137,39 @@ where
         let mut this = self.clone();
 
         Box::pin(async move {
+            let span = tracing::info_span!(
+                "builder::permissioning",
+                builder = tracing::field::Empty,
+                permissioned_builder = this.builders.current_builder().sub(),
+                current_slot = this.builders.calc().current_slot(),
+            );
+
+            info!("builder permissioning check started");
+
             // Check if the sub is in the header.
-            let sub = if let Some(sub) = req.headers().get("x-jwt-claim-sub") {
-                // If so, attempt to convert it to a string.
-                match sub.to_str() {
-                    Ok(sub) => sub,
-                    Err(_) => {
-                        return Ok((StatusCode::BAD_REQUEST, "invalid header").into_response());
+            let sub = match req.headers().get("x-jwt-claim-sub") {
+                Some(header_value) => match header_value.to_str() {
+                    Ok(sub) => {
+                        span.record("builder", sub);
+                        sub
                     }
+                    Err(_) => {
+                        error!("builder request has invalid header encoding");
+                        return Ok(ApiError::invalid_encoding().into_response());
+                    }
+                },
+                None => {
+                    error!("builder request missing header");
+                    return Ok(ApiError::missing_header().into_response());
                 }
-            } else {
-                return Ok((StatusCode::UNAUTHORIZED, "missing sub header").into_response());
             };
 
             if let Err(err) = this.builders.is_builder_permissioned(sub) {
-                return Ok((StatusCode::FORBIDDEN, err.to_string()).into_response());
+                info!(%err, %sub, "permission denied");
+                return Ok(ApiError::permission_denied().into_response());
             }
+
+            info!(%sub, current_slot = %this.builders.calc().current_slot(), "builder permissioned successfully");
 
             this.inner.call(req).await
         })
