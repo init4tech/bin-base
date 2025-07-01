@@ -1,4 +1,7 @@
 //! Middleware to check if a builder is allowed to sign a block.
+//! Implemented as a [`tower::Layer`] and [`tower::Service`],
+//! which can be used in an Axum application to enforce builder permissions
+//! based on the current slot and builder configuration.
 
 use crate::perms::Builders;
 use axum::{
@@ -182,7 +185,7 @@ where
                 return Ok(ApiError::permission_denied(hint).into_response());
             }
 
-            info!(current_slot = %this.builders.calc().current_slot(), "builder permissioned successfully");
+            info!("builder permissioned successfully");
 
             this.inner.call(req).await
         })
