@@ -20,6 +20,9 @@ struct ApiError {
     error: &'static str,
     /// A human-readable message describing the error.
     message: &'static str,
+    /// A human-readable hint for the error, if applicable.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hint: Option<&'static str>,
 }
 
 impl ApiError {
@@ -30,6 +33,7 @@ impl ApiError {
             Json(ApiError {
                 error: "MISSING_AUTH_HEADER",
                 message: "Missing authentication header",
+                hint: Some("Please provide the 'x-jwt-claim-sub' header with your JWT claim sub."),
             }),
         )
     }
@@ -41,17 +45,21 @@ impl ApiError {
             Json(ApiError {
                 error: "INVALID_HEADER_ENCODING",
                 message: "Invalid header encoding",
+                hint: Some(
+                    "Ensure the 'x-jwt-claim-sub' header is properly encoded as a UTF-8 string.",
+                ),
             }),
         )
     }
 
     /// API error for permission denied.
-    const fn permission_denied() -> (StatusCode, Json<Self>) {
+    const fn permission_denied(hint: Option<&'static str>) -> (StatusCode, Json<Self>) {
         (
             StatusCode::FORBIDDEN,
             Json(ApiError {
                 error: "PERMISSION_DENIED",
                 message: "Builder permission denied",
+                hint,
             }),
         )
     }
@@ -177,12 +185,30 @@ where
                 info!(api_err = %err, "permission denied");
                 span.record("permissioning_error", err.to_string());
 
-                return Ok(ApiError::permission_denied().into_response());
+                let hint = builder_permissioning_hint(&err);
+
+                return Ok(ApiError::permission_denied(hint).into_response());
             }
 
             info!(current_slot = %this.builders.calc().current_slot(), "builder permissioned successfully");
 
             this.inner.call(req).await
         })
+    }
+}
+
+const fn builder_permissioning_hint(
+    err: &crate::perms::BuilderPermissionError,
+) -> Option<&'static str> {
+    match err {
+        crate::perms::BuilderPermissionError::ActionAttemptTooEarly => {
+            Some("Action attempted too early in the slot.")
+        }
+        crate::perms::BuilderPermissionError::ActionAttemptTooLate => {
+            Some("Action attempted too late in the slot.")
+        }
+        crate::perms::BuilderPermissionError::NotPermissioned => {
+            Some("Builder is not permissioned for this slot.")
+        }
     }
 }
