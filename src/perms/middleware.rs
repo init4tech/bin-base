@@ -3,7 +3,7 @@
 use crate::perms::Builders;
 use axum::{
     extract::Request,
-    http::StatusCode,
+    http::{HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
@@ -27,7 +27,7 @@ struct ApiError {
 
 impl ApiError {
     /// API error for missing authentication header.
-    const fn missing_header() -> (StatusCode, Json<Self>) {
+    const fn missing_header() -> (StatusCode, Json<ApiError>) {
         (
             StatusCode::UNAUTHORIZED,
             Json(ApiError {
@@ -38,22 +38,30 @@ impl ApiError {
         )
     }
 
-    /// API error for invalid header encoding.
-    const fn invalid_encoding() -> (StatusCode, Json<Self>) {
+    const fn invalid_encoding() -> (StatusCode, Json<ApiError>) {
         (
             StatusCode::BAD_REQUEST,
             Json(ApiError {
-                error: "INVALID_HEADER_ENCODING",
-                message: "Invalid header encoding",
-                hint: Some(
-                    "Ensure the 'x-jwt-claim-sub' header is properly encoded as a UTF-8 string.",
-                ),
+                error: "INVALID_ENCODING",
+                message: "Invalid encoding in header value",
+                hint: Some("Ensure the 'x-jwt-claim-sub' header is properly encoded."),
+            }),
+        )
+    }
+
+    const fn header_empty() -> (StatusCode, Json<ApiError>) {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(ApiError {
+                error: "EMPTY_HEADER",
+                message: "Empty header value",
+                hint: Some("Ensure the 'x-jwt-claim-sub' header is not empty."),
             }),
         )
     }
 
     /// API error for permission denied.
-    const fn permission_denied(hint: Option<&'static str>) -> (StatusCode, Json<Self>) {
+    const fn permission_denied(hint: Option<&'static str>) -> (StatusCode, Json<ApiError>) {
         (
             StatusCode::FORBIDDEN,
             Json(ApiError {
@@ -156,28 +164,12 @@ where
             info!("builder permissioning check started");
 
             // Check if the sub is in the header.
-            let sub = match req.headers().get("x-jwt-claim-sub") {
-                Some(header_value) => match header_value.to_str() {
-                    Ok(sub) => {
-                        span.record("builder", sub);
-                        sub
-                    }
-                    Err(err) => {
-                        let api_err = ApiError::invalid_encoding();
-
-                        info!(api_err = %api_err.1.message, header_err = %err, "permission denied");
-                        span.record("permissioning_error", api_err.1.message);
-
-                        return Ok(api_err.into_response());
-                    }
-                },
-                None => {
-                    let api_err = ApiError::missing_header();
-
-                    info!(api_err = %api_err.1.message, "permission denied");
-                    span.record("permissioning_error", api_err.1.message);
-
-                    return Ok(api_err.into_response());
+            let sub = match validate_header_sub(req.headers().get("x-jwt-claim-sub")) {
+                Ok(sub) => sub,
+                Err(err) => {
+                    info!(api_err = %err.1.message, "permission denied");
+                    span.record("permissioning_error", err.1.message);
+                    return Ok(err.into_response());
                 }
             };
 
@@ -195,6 +187,22 @@ where
             this.inner.call(req).await
         })
     }
+}
+
+fn validate_header_sub(sub: Option<&HeaderValue>) -> Result<&str, (StatusCode, Json<ApiError>)> {
+    let Some(sub) = sub else {
+        return Err(ApiError::missing_header());
+    };
+
+    let Some(sub) = sub.to_str().ok() else {
+        return Err(ApiError::invalid_encoding());
+    };
+
+    if sub.is_empty() {
+        return Err(ApiError::header_empty());
+    }
+
+    Ok(sub)
 }
 
 const fn builder_permissioning_hint(
