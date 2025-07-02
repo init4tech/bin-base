@@ -20,7 +20,7 @@ fn now() -> u64 {
 }
 
 /// Possible errors when permissioning a builder.
-#[derive(Debug, thiserror::Error, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum BuilderPermissionError {
     /// Action attempt too early.
     #[error("action attempt too early")]
@@ -31,8 +31,10 @@ pub enum BuilderPermissionError {
     ActionAttemptTooLate,
 
     /// Builder not permissioned for this slot.
-    #[error("builder not permissioned for this slot")]
-    NotPermissioned,
+    #[error(
+        "builder not permissioned for this slot: requesting builder {0}, permissioned builder {1}"
+    )]
+    NotPermissioned(String, String),
 }
 
 /// An individual builder.
@@ -178,7 +180,10 @@ impl Builders {
                 permissioned_builder = %self.current_builder().sub,
                 "Builder not permissioned for this slot"
             );
-            return Err(BuilderPermissionError::NotPermissioned);
+            return Err(BuilderPermissionError::NotPermissioned(
+                sub.to_owned(),
+                self.current_builder().sub.to_owned(),
+            ));
         }
 
         Ok(())
