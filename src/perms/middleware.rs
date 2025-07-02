@@ -160,7 +160,9 @@ where
                 "builder::permissioning",
                 builder = tracing::field::Empty,
                 permissioned_builder = this.builders.current_builder().sub(),
+                requesting_builder = tracing::field::Empty,
                 current_slot = this.builders.calc().current_slot(),
+                current_timepoint_within_slot = this.builders.calc().current_timepoint_within_slot(),
                 permissioning_error = tracing::field::Empty,
             );
 
@@ -172,15 +174,17 @@ where
             let sub = match validate_header_sub(req.headers().get("x-jwt-claim-sub")) {
                 Ok(sub) => sub,
                 Err(err) => {
-                    info!(api_err = %err.1.message, "permission denied");
                     span.record("permissioning_error", err.1.message);
+                    info!(api_err = %err.1.message, "permission denied");
                     return Ok(err.into_response());
                 }
             };
 
+            span.record("requesting_builder", sub);
+
             if let Err(err) = this.builders.is_builder_permissioned(sub) {
-                info!(api_err = %err, "permission denied");
                 span.record("permissioning_error", err.to_string());
+                info!(api_err = %err, "permission denied");
 
                 let hint = builder_permissioning_hint(&err);
 
