@@ -95,12 +95,17 @@ impl SlotCalculator {
 
     /// The current slot number.
     pub fn current_slot(&self) -> u64 {
-        self.calculate_slot(chrono::Utc::now().timestamp() as u64)
+        self.calculate_slot(self.current_timestamp())
+    }
+
+    /// The current timestamp in seconds.
+    pub fn current_timestamp(&self) -> u64 {
+        chrono::Utc::now().timestamp() as u64
     }
 
     /// The current number of seconds into the block window.
     pub fn current_timepoint_within_slot(&self) -> u64 {
-        self.calculate_timepoint_within_slot(chrono::Utc::now().timestamp() as u64)
+        self.calculate_timepoint_within_slot(self.current_timestamp())
     }
 
     /// The timestamp of the first PoS block in the chain.
