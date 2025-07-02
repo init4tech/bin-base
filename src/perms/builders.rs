@@ -31,7 +31,9 @@ pub enum BuilderPermissionError {
     ActionAttemptTooLate,
 
     /// Builder not permissioned for this slot.
-    #[error("builder not permissioned for this slot: requesting builder {0}, permissioned builder {1}")]
+    #[error(
+        "builder not permissioned for this slot: requesting builder {0}, permissioned builder {1}"
+    )]
     NotPermissioned(String, String),
 }
 
@@ -178,7 +180,10 @@ impl Builders {
                 permissioned_builder = %self.current_builder().sub,
                 "Builder not permissioned for this slot"
             );
-            return Err(BuilderPermissionError::NotPermissioned(sub.to_owned(), self.current_builder().sub.to_owned()));
+            return Err(BuilderPermissionError::NotPermissioned(
+                sub.to_owned(),
+                self.current_builder().sub.to_owned(),
+            ));
         }
 
         Ok(())
