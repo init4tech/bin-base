@@ -164,6 +164,8 @@ where
                 permissioning_error = tracing::field::Empty,
             );
 
+            let guard = span.enter();
+
             info!("builder permissioning check started");
 
             // Check if the sub is in the header.
@@ -186,6 +188,8 @@ where
             }
 
             info!("builder permissioned successfully");
+
+            drop(guard);
 
             this.inner.call(req).await
         })
