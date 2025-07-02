@@ -226,7 +226,7 @@ const fn builder_permissioning_hint(
         crate::perms::BuilderPermissionError::ActionAttemptTooLate => {
             Some("Action attempted too late in the slot.")
         }
-        crate::perms::BuilderPermissionError::NotPermissioned => {
+        crate::perms::BuilderPermissionError::NotPermissioned(_, _) => {
             Some("Builder is not permissioned for this slot.")
         }
     }
