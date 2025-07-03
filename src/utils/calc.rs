@@ -28,11 +28,16 @@ use crate::utils::from_env::FromEnv;
 /// of slot 1 is the `start_timestamp` and the end of slot 1 is
 /// `start_timestamp + slot_duration`.
 ///
+/// For a given slot, we normalize its number to `n` by subtracting the slot
+/// offset. `n` is therefore in the range `1..`.
+///
+/// - `n = normalized(slot) = slot - slot_offset`.
+///
 /// As such, we can define the `slot_start(n)` as
-/// - `slot_start(n) = n * slot_duration + start_timestamp`
+/// - `slot_start(n) = (n - 1) * slot_duration + start_timestamp`
 ///
 /// and `slot_end(n)` as
-/// - `slot_end(n) = (n + 1) * slot_duration + start_timestamp`
+/// - `slot_end(n) = n * slot_duration + start_timestamp`
 ///
 /// The slot `n` contains the range of timestamps:
 /// - `slot_window(n) = slot_start(n)..slot_end(n)`
