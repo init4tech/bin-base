@@ -162,8 +162,11 @@ where
                 permissioned_builder = this.builders.current_builder().sub(),
                 requesting_builder = tracing::field::Empty,
                 current_slot = this.builders.calc().current_slot(),
-                current_timepoint_within_slot =
-                    this.builders.calc().current_timepoint_within_slot(),
+                current_timepoint_within_slot = this
+                    .builders
+                    .calc()
+                    .current_point_within_slot()
+                    .expect("host chain has started"),
                 permissioning_error = tracing::field::Empty,
             );
 

@@ -135,29 +135,36 @@ impl Builders {
 
     /// Get the builder permissioned at a specific timestamp.
     pub fn builder_at_timestamp(&self, timestamp: u64) -> &Builder {
-        self.builder_at(self.index(timestamp) as usize)
+        self.builder_at(self.index(timestamp))
     }
 
     /// Get the index of the builder that is allowed to sign a block for a
     /// particular timestamp.
-    pub fn index(&self, timestamp: u64) -> u64 {
-        self.config.calc().calculate_slot(timestamp) % self.builders.len() as u64
+    pub fn index(&self, timestamp: u64) -> usize {
+        self.config
+            .calc()
+            .slot_containing(timestamp)
+            .expect("host chain has started")
+            % self.builders.len()
     }
 
     /// Get the index of the builder that is allowed to sign a block at the
     /// current timestamp.
-    pub fn index_now(&self) -> u64 {
+    pub fn index_now(&self) -> usize {
         self.index(now())
     }
 
     /// Get the builder that is allowed to sign a block at the current timestamp.
     pub fn current_builder(&self) -> &Builder {
-        self.builder_at(self.index_now() as usize)
+        self.builder_at(self.index_now())
     }
 
     /// Check the query bounds for the current timestamp.
     fn check_query_bounds(&self) -> Result<(), BuilderPermissionError> {
-        let current_slot_time = self.calc().current_timepoint_within_slot();
+        let current_slot_time = self
+            .calc()
+            .current_point_within_slot()
+            .expect("host chain has started");
         if current_slot_time < self.config.block_query_start() {
             return Err(BuilderPermissionError::ActionAttemptTooEarly);
         }
