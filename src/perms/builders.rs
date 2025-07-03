@@ -135,7 +135,7 @@ impl Builders {
 
     /// Get the builder permissioned at a specific timestamp.
     pub fn builder_at_timestamp(&self, timestamp: u64) -> &Builder {
-        self.builder_at(self.index(timestamp) as usize)
+        self.builder_at(self.index(timestamp))
     }
 
     /// Get the index of the builder that is allowed to sign a block for a
@@ -156,7 +156,7 @@ impl Builders {
 
     /// Get the builder that is allowed to sign a block at the current timestamp.
     pub fn current_builder(&self) -> &Builder {
-        self.builder_at(self.index_now() as usize)
+        self.builder_at(self.index_now())
     }
 
     /// Check the query bounds for the current timestamp.
