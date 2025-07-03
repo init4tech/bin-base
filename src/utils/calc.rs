@@ -18,6 +18,21 @@ use crate::utils::from_env::FromEnv;
 /// BEGINNING of the next slot. I.e. if the initial slot is 0, then the start
 /// of slot 1 is the `start_timestamp` and the end of slot 1 is
 /// `start_timestamp + slot_duration`.
+///
+/// As such, we can define the `slot_start(n)` as
+/// - `slot_start(n) = n * slot_duration + start_timestamp`
+/// and `slot_end(n)` as
+/// - `slot_end(n) = (n + 1) * slot_duration + start_timestamp`
+/// The slot `n` contains the range of timestamps:
+/// - `slot_window(n) = slot_start(n)..slot_end(n)`
+///
+/// To calculate the slot number `n` for a given timestamp `t`, we can use the
+/// following formula:
+/// - `slot_for(t) = ((t - start_timestamp) / slot_duration) + slot_offset + 1`
+///
+/// The `+ 1` is added because the first slot is the slot at `slot_offset`,
+/// which ENDS at `start_timestamp`. I.e. a timestamp at `start_timestamp` is
+/// in slot `slot_offset + 1`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Deserialize, FromEnv)]
 #[from_env(crate)]
 pub struct SlotCalculator {
