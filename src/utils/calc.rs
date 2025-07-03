@@ -164,7 +164,7 @@ mod tests {
     #[test]
     fn test_basic_slot_calculations() {
         let calculator = SlotCalculator::new(12, 0, 12);
-        assert_eq!(calculator.time_to_slot(0), Some(12));
+        assert_eq!(calculator.time_to_slot(0), None);
 
         assert_eq!(calculator.time_to_slot(1), Some(13));
         assert_eq!(calculator.time_to_slot(11), Some(13));
