@@ -141,7 +141,11 @@ impl Builders {
     /// Get the index of the builder that is allowed to sign a block for a
     /// particular timestamp.
     pub fn index(&self, timestamp: u64) -> u64 {
-        self.config.calc().calculate_slot(timestamp) % self.builders.len() as u64
+        self.config
+            .calc()
+            .time_to_slot(timestamp)
+            .expect("host chain has started")
+            % self.builders.len() as u64
     }
 
     /// Get the index of the builder that is allowed to sign a block at the
@@ -157,7 +161,10 @@ impl Builders {
 
     /// Check the query bounds for the current timestamp.
     fn check_query_bounds(&self) -> Result<(), BuilderPermissionError> {
-        let current_slot_time = self.calc().current_timepoint_within_slot();
+        let current_slot_time = self
+            .calc()
+            .current_point_within_slot()
+            .expect("host chain has started");
         if current_slot_time < self.config.block_query_start() {
             return Err(BuilderPermissionError::ActionAttemptTooEarly);
         }
