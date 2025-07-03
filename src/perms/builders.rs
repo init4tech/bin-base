@@ -140,17 +140,17 @@ impl Builders {
 
     /// Get the index of the builder that is allowed to sign a block for a
     /// particular timestamp.
-    pub fn index(&self, timestamp: u64) -> u64 {
+    pub fn index(&self, timestamp: u64) -> usize {
         self.config
             .calc()
-            .time_to_slot(timestamp)
+            .slot_containing(timestamp)
             .expect("host chain has started")
-            % self.builders.len() as u64
+            % self.builders.len()
     }
 
     /// Get the index of the builder that is allowed to sign a block at the
     /// current timestamp.
-    pub fn index_now(&self) -> u64 {
+    pub fn index_now(&self) -> usize {
         self.index(now())
     }
 
