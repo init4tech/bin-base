@@ -2,10 +2,28 @@ use crate::utils::from_env::FromEnv;
 
 /// A slot calculator, which can calculate the slot number for a given
 /// timestamp.
+///
+/// ## Behavior
+///
+/// Chain slot behavior is a bit unintuitive, particularly for chains that
+/// have a merge or chains that have missed slots at the start of the chain
+/// (i.e. Ethereum and its testnets).
+///
+/// Each header occupies a slot, but not all slots contain headers.
+/// Headers contain the timestamp at the END of their respective slot.
+///
+/// Chains _start_ with a first header, which contains a timestamp (the
+/// `start_timestamp`) and occupies the initial slot (the `slot_offset`).
+/// The `start_timestamp` is therefore the END of the initial slot, and the
+/// BEGINNING of the next slot. I.e. if the initial slot is 0, then the start
+/// of slot 1 is the `start_timestamp` and the end of slot 1 is
+/// `start_timestamp + slot_duration`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Deserialize, FromEnv)]
 #[from_env(crate)]
 pub struct SlotCalculator {
-    /// The start timestamp.
+    /// The start timestamp. This is the timestamp of the header to start the
+    /// PoS chain. That header occupies a specific slot (the `slot_offset`). The
+    /// `start_timestamp` is the END of that slot.
     #[from_env(
         var = "START_TIMESTAMP",
         desc = "The start timestamp of the chain in seconds"
@@ -72,14 +90,14 @@ impl SlotCalculator {
         }
     }
 
-    /// Calculates the slot for a given timestamp.
+    /// Calculates the slot that contains a given timestamp.
     ///
     /// Returns `None` if the timestamp is before the chain's start timestamp.
     pub const fn time_to_slot(&self, timestamp: u64) -> Option<u64> {
         let Some(elapsed) = timestamp.checked_sub(self.start_timestamp) else {
             return None;
         };
-        let slots = elapsed.div_ceil(self.slot_duration);
+        let slots = (elapsed / self.slot_duration) + 1;
         Some(slots + self.slot_offset)
     }
 
@@ -260,20 +278,20 @@ mod tests {
 
     #[test]
     fn slot_boundaries() {
+        let calculator = SlotCalculator::new(0, 0, 2);
+
+        // Check the boundaries of slots
+        assert_eq!(calculator.time_to_slot(0), Some(1));
+        assert_eq!(calculator.time_to_slot(1), Some(1));
+        assert_eq!(calculator.time_to_slot(2), Some(2));
+        assert_eq!(calculator.time_to_slot(3), Some(2));
+        assert_eq!(calculator.time_to_slot(4), Some(3));
+        assert_eq!(calculator.time_to_slot(5), Some(3));
+        assert_eq!(calculator.time_to_slot(6), Some(4));
+
         let calculator = SlotCalculator::new(12, 0, 12);
 
         // Check the boundaries of slots
-        assert_eq!(calculator.time_to_slot(0), None);
-        assert_eq!(calculator.time_to_slot(11), None);
-        assert_eq!(calculator.time_to_slot(12), Some(0));
-        assert_eq!(calculator.time_to_slot(13), Some(0));
-        assert_eq!(calculator.time_to_slot(23), Some(1));
-        assert_eq!(calculator.time_to_slot(24), Some(1));
-        assert_eq!(calculator.time_to_slot(25), Some(1));
-        assert_eq!(calculator.time_to_slot(35), Some(2));
-
-        let calculator = SlotCalculator::new(12, 1, 12);
-
         assert_eq!(calculator.time_to_slot(0), None);
         assert_eq!(calculator.time_to_slot(11), None);
         assert_eq!(calculator.time_to_slot(12), Some(1));
@@ -281,6 +299,17 @@ mod tests {
         assert_eq!(calculator.time_to_slot(23), Some(1));
         assert_eq!(calculator.time_to_slot(24), Some(2));
         assert_eq!(calculator.time_to_slot(25), Some(2));
+        assert_eq!(calculator.time_to_slot(35), Some(2));
+
+        let calculator = SlotCalculator::new(12, 1, 12);
+
+        assert_eq!(calculator.time_to_slot(0), None);
+        assert_eq!(calculator.time_to_slot(11), None);
+        assert_eq!(calculator.time_to_slot(12), Some(2));
+        assert_eq!(calculator.time_to_slot(13), Some(2));
+        assert_eq!(calculator.time_to_slot(23), Some(2));
+        assert_eq!(calculator.time_to_slot(24), Some(3));
+        assert_eq!(calculator.time_to_slot(25), Some(3));
         assert_eq!(calculator.time_to_slot(35), Some(3));
     }
 }
