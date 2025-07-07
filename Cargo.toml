@@ -16,8 +16,8 @@ repository = "https://github.com/init4tech/bin-base"
 init4-from-env-derive =  "0.1.0"
 
 # Signet
-signet-constants = { version = "0.4.2" }
-signet-tx-cache = { version = "0.4.2", optional = true }
+signet-constants = { version = "0.4.3" }
+signet-tx-cache = { version = "0.4.3", optional = true }
 
 # Tracing
 tracing = "0.1.40"
