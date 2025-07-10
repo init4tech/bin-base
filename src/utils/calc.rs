@@ -248,10 +248,8 @@ impl SlotCalculator {
     /// Calculates the slot that starts at the given timestamp.
     /// Returns `None` if the timestamp is not a slot boundary.
     /// Returns `None` if the timestamp is before the chain's start timestamp.
-    pub const fn slot_starting_at(&self, timestamp: u64) -> Option<usize> {
-        let Some(elapsed) = timestamp.checked_sub(self.start_timestamp) else {
-            return None;
-        };
+    pub fn slot_starting_at(&self, timestamp: u64) -> Option<usize> {
+        let elapsed = timestamp.checked_sub(self.start_timestamp)?;
 
         if elapsed % self.slot_duration != 0 {
             return None;
@@ -264,9 +262,7 @@ impl SlotCalculator {
     /// Returns `None` if the timestamp is not a slot boundary.
     /// Returns `None` if the timestamp is before the chain's start timestamp.
     pub fn slot_ending_at(&self, timestamp: u64) -> Option<usize> {
-        let Some(elapsed) = timestamp.checked_sub(self.start_timestamp) else {
-            return None;
-        };
+        let elapsed = timestamp.checked_sub(self.start_timestamp)?;
 
         if elapsed % self.slot_duration != 0 {
             return None;
