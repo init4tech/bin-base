@@ -244,6 +244,30 @@ impl SlotCalculator {
     pub fn current_point_within_slot(&self) -> Option<u64> {
         self.point_within_slot(chrono::Utc::now().timestamp() as u64)
     }
+
+    /// Calculates the slot that starts at the given timestamp.
+    /// If given a timestamp that is NOT a slot boundary, it will return
+    /// `None`.
+    pub const fn slot_starting_at(&self, timestamp: u64) -> Option<usize> {
+        if timestamp % self.slot_duration != 0 {
+            return None;
+        }
+
+        self.slot_containing(timestamp)
+    }
+
+    /// Calculates the slot that ends at the given timestamp.
+    /// If given a timestamp that is NOT a slot boundary, it will return
+    /// `None`.
+    pub fn slot_ending_at(&self, timestamp: u64) -> Option<usize> {
+        if timestamp % self.slot_duration != 0 {
+            return None;
+        }
+
+        self.slot_containing(timestamp)
+            .and_then(|slot| slot.checked_sub(1))
+            .and_then(|slot| if slot == 0 { None } else { Some(slot) })
+    }
 }
 
 #[cfg(test)]
@@ -265,10 +289,16 @@ mod tests {
         assert_eq!(calculator.slot_containing(1), None);
         assert_eq!(calculator.slot_containing(11), None);
 
+        assert_eq!(calculator.slot_ending_at(12), None);
+        assert_eq!(calculator.slot_starting_at(12), Some(1));
         assert_eq!(calculator.slot_containing(12), Some(1));
         assert_eq!(calculator.slot_containing(13), Some(1));
+        assert_eq!(calculator.slot_starting_at(13), None);
         assert_eq!(calculator.slot_containing(23), Some(1));
+        assert_eq!(calculator.slot_ending_at(23), None);
 
+        assert_eq!(calculator.slot_ending_at(24), Some(1));
+        assert_eq!(calculator.slot_starting_at(24), Some(2));
         assert_eq!(calculator.slot_containing(24), Some(2));
         assert_eq!(calculator.slot_containing(25), Some(2));
         assert_eq!(calculator.slot_containing(35), Some(2));
