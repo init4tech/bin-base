@@ -246,10 +246,14 @@ impl SlotCalculator {
     }
 
     /// Calculates the slot that starts at the given timestamp.
-    /// If given a timestamp that is NOT a slot boundary, it will return
-    /// `None`.
+    /// Returns `None` if the timestamp is not a slot boundary.
+    /// Returns `None` if the timestamp is before the chain's start timestamp.
     pub const fn slot_starting_at(&self, timestamp: u64) -> Option<usize> {
-        if timestamp % self.slot_duration != 0 {
+        let Some(elapsed) = timestamp.checked_sub(self.start_timestamp) else {
+            return None;
+        };
+
+        if elapsed % self.slot_duration != 0 {
             return None;
         }
 
@@ -257,16 +261,19 @@ impl SlotCalculator {
     }
 
     /// Calculates the slot that ends at the given timestamp.
-    /// If given a timestamp that is NOT a slot boundary, it will return
-    /// `None`.
+    /// Returns `None` if the timestamp is not a slot boundary.
+    /// Returns `None` if the timestamp is before the chain's start timestamp.
     pub fn slot_ending_at(&self, timestamp: u64) -> Option<usize> {
-        if timestamp % self.slot_duration != 0 {
+        let Some(elapsed) = timestamp.checked_sub(self.start_timestamp) else {
+            return None;
+        };
+
+        if elapsed % self.slot_duration != 0 {
             return None;
         }
 
         self.slot_containing(timestamp)
             .and_then(|slot| slot.checked_sub(1))
-            .and_then(|slot| if slot == 0 { None } else { Some(slot) })
     }
 }
 
@@ -285,11 +292,13 @@ mod tests {
     #[test]
     fn test_basic_slot_calculations() {
         let calculator = SlotCalculator::new(12, 0, 12);
+        assert_eq!(calculator.slot_ending_at(0), None);
         assert_eq!(calculator.slot_containing(0), None);
         assert_eq!(calculator.slot_containing(1), None);
         assert_eq!(calculator.slot_containing(11), None);
 
-        assert_eq!(calculator.slot_ending_at(12), None);
+        assert_eq!(calculator.slot_ending_at(11), None);
+        assert_eq!(calculator.slot_ending_at(12), Some(0));
         assert_eq!(calculator.slot_starting_at(12), Some(1));
         assert_eq!(calculator.slot_containing(12), Some(1));
         assert_eq!(calculator.slot_containing(13), Some(1));
