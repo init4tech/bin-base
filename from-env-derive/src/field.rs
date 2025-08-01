@@ -114,7 +114,7 @@ impl Field {
             return field_name.clone();
         }
 
-        let n = format!("field_{}", idx);
+        let n = format!("field_{idx}");
         syn::parse_str::<Ident>(&n)
             .map_err(|_| syn::Error::new(self.span, "Failed to create field name"))
             .unwrap()

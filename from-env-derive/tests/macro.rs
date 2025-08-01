@@ -92,10 +92,10 @@ mod test {
     }
 
     fn assert_contains(vec: &Vec<&'static EnvItemInfo>, item: &EnvItemInfo) {
-        let item = vec.iter().find(|i| i.var == item.var).unwrap();
-        assert_eq!(item.var, item.var);
-        assert_eq!(item.description, item.description);
-        assert_eq!(item.optional, item.optional);
+        let i = vec.iter().find(|i| i.var == item.var).unwrap();
+        assert_eq!(i.var, item.var);
+        assert_eq!(i.description, item.description);
+        assert_eq!(i.optional, item.optional);
     }
 
     #[test]
