@@ -102,13 +102,21 @@ impl Input {
         }
     }
 
-    fn error_ident(&self) -> syn::Ident {
+    fn error_ident(&self) -> syn::Path {
+        if self.is_infallible() {
+            return syn::parse_str("::std::convert::Infallible").unwrap();
+        }
+
         let error_name = format!("{}EnvError", self.ident);
-        syn::parse_str::<syn::Ident>(&error_name)
+        syn::parse_str::<syn::Path>(&error_name)
             .map_err(|_| {
                 syn::Error::new(self.ident.span(), "Failed to parse error ident").to_compile_error()
             })
             .unwrap()
+    }
+
+    fn is_infallible(&self) -> bool {
+        self.error_variants().is_empty()
     }
 
     fn error_variants(&self) -> Vec<TokenStream> {
@@ -151,6 +159,10 @@ impl Input {
         let error_variants = self.error_variants();
         let error_variant_displays = self.error_variant_displays();
         let error_variant_sources = self.expand_variant_sources();
+
+        if error_variants.is_empty() {
+            return Default::default();
+        }
 
         quote! {
             #[doc = "Generated error type for [`FromEnv`] for"]
@@ -195,6 +207,7 @@ impl Input {
     fn expand_impl(&self) -> TokenStream {
         let env_item_info = self.env_item_info();
         let struct_name = &self.ident;
+
         let error_ident = self.error_ident();
 
         let item_from_envs = self.item_from_envs();
@@ -226,16 +239,25 @@ impl Input {
 
     fn expand_mod(&self) -> TokenStream {
         // let expanded_impl = expand_impl(input);
-        let expanded_error = self.expand_error();
         let expanded_impl = self.expand_impl();
         let crate_name = &self.crate_name;
-        let error_ident = self.error_ident();
 
         let mod_ident =
             syn::parse_str::<syn::Ident>(&format!("__from_env_impls_{}", self.ident)).unwrap();
 
+        let expanded_error = self.expand_error();
+
+        let use_err = if !expanded_error.is_empty() {
+            let error_ident = self.error_ident();
+            quote! {
+                pub use #mod_ident::#error_ident;
+            }
+        } else {
+            quote! {}
+        };
+
         quote! {
-            pub use #mod_ident::#error_ident;
+            #use_err
             mod #mod_ident {
                 use super::*;
                 use #crate_name::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar, EnvItemInfo};

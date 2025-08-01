@@ -1,5 +1,16 @@
 use init4_from_env_derive::FromEnv;
 
+// Compile check for a struct with no fallible fields (and therefore no
+// associated env error).
+#[derive(Debug, FromEnv)]
+pub struct InfallibleConfig {
+    #[from_env(var = "INTERNAL", desc = "An infallible string", infallible)]
+    pub internal: String,
+
+    #[from_env(var = "INTERNAL_COW", desc = "An infallible Cow<str>", infallible)]
+    pub internal_cow: std::borrow::Cow<'static, str>,
+}
+
 #[derive(FromEnv, Debug)]
 pub struct FromEnvTest {
     /// This is a guy named tony

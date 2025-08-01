@@ -199,7 +199,7 @@ impl Field {
         })
     }
 
-    pub(crate) fn expand_item_from_env(&self, err_ident: &Ident, idx: usize) -> TokenStream {
+    pub(crate) fn expand_item_from_env(&self, err_ident: &syn::Path, idx: usize) -> TokenStream {
         // Produces code fo the following form:
         // ```rust
         // // EITHER
