@@ -114,7 +114,7 @@ impl Field {
             return field_name.clone();
         }
 
-        let n = format!("field_{}", idx);
+        let n = format!("field_{idx}");
         syn::parse_str::<Ident>(&n)
             .map_err(|_| syn::Error::new(self.span, "Failed to create field name"))
             .unwrap()
@@ -199,7 +199,7 @@ impl Field {
         })
     }
 
-    pub(crate) fn expand_item_from_env(&self, err_ident: &Ident, idx: usize) -> TokenStream {
+    pub(crate) fn expand_item_from_env(&self, err_ident: &syn::Path, idx: usize) -> TokenStream {
         // Produces code fo the following form:
         // ```rust
         // // EITHER
