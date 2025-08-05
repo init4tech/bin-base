@@ -1,6 +1,6 @@
 use crate::utils::from_env::{FromEnvErr, FromEnvVar};
 use alloy::{
-    providers::{IpcConnect, WsConnect},
+    providers::{IpcConnect, RootProvider, WsConnect},
     pubsub::{ConnectionHandle, PubSubConnect},
     rpc::client::BuiltInConnectionString,
     transports::{
@@ -23,10 +23,27 @@ pub struct ProviderConfig {
     connection_string: BuiltInConnectionString,
 }
 
+impl ProviderConfig {
+    /// Creates a new `ProviderConfig` from a connection string.
+    pub const fn new(connection_string: BuiltInConnectionString) -> Self {
+        Self { connection_string }
+    }
+
+    /// Returns the connection string.
+    pub const fn connection_string(&self) -> &BuiltInConnectionString {
+        &self.connection_string
+    }
+
+    /// Connects to the provider using the connection string.
+    pub async fn connect(&self) -> TransportResult<RootProvider> {
+        RootProvider::connect_with(self.clone()).await
+    }
+}
+
 impl FromEnvVar for ProviderConfig {
     type Error = TransportError;
 
-    fn from_env_var(env_var: &str) -> Result<Self, super::from_env::FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
         let connection_string = BuiltInConnectionString::from_env_var(env_var)?;
         Ok(Self { connection_string })
     }
@@ -51,20 +68,38 @@ pub struct PubSubConfig {
     connection_string: BuiltInConnectionString,
 }
 
-impl FromEnvVar for PubSubConfig {
+impl PubSubConfig {
+    /// Returns the connection string.
+    pub const fn connection_string(&self) -> &BuiltInConnectionString {
+        &self.connection_string
+    }
+
+    /// Connects to the provider using the connection string.
+    pub async fn connect(&self) -> TransportResult<RootProvider> {
+        RootProvider::connect_with(self.clone()).await
+    }
+}
+
+impl TryFrom<BuiltInConnectionString> for PubSubConfig {
     type Error = TransportError;
 
-    fn from_env_var(env_var: &str) -> Result<Self, super::from_env::FromEnvErr<Self::Error>> {
-        let connection_string = BuiltInConnectionString::from_env_var(env_var)?;
-
+    fn try_from(connection_string: BuiltInConnectionString) -> Result<Self, Self::Error> {
         if !matches!(
             connection_string,
             BuiltInConnectionString::Ws(_, _) | BuiltInConnectionString::Ipc(_)
         ) {
-            return Err(TransportErrorKind::pubsub_unavailable().into());
+            return Err(TransportErrorKind::pubsub_unavailable());
         }
-
         Ok(Self { connection_string })
+    }
+}
+
+impl FromEnvVar for PubSubConfig {
+    type Error = TransportError;
+
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+        let cs = BuiltInConnectionString::from_env_var(env_var)?;
+        Self::try_from(cs).map_err(FromEnvErr::ParseError)
     }
 }
 
