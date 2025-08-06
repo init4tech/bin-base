@@ -3,6 +3,7 @@ use signet_constants::{
     SignetSystemConstants,
 };
 use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
+use tracing_core::metadata::ParseLevelError;
 
 /// The `derive(FromEnv)` macro.
 ///
@@ -453,7 +454,7 @@ where
 /// ```
 pub trait FromEnvVar: core::fmt::Debug + Sized + 'static {
     /// Error type produced when parsing the primitive.
-    type Error: core::error::Error;
+    type Error: core::error::Error + Clone + PartialEq + Eq;
 
     /// Load the primitive from the environment at the given variable.
     fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>>;
@@ -613,7 +614,6 @@ impl_for_parseable!(
     i128,
     isize,
     url::Url,
-    tracing::Level,
     SignetConstants,
     SignetEnvironmentConstants,
     SignetSystemConstants,
@@ -643,6 +643,28 @@ impl FromEnvVar for bool {
     fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
         let s: String = std::env::var(env_var).map_err(|e| FromEnvErr::env_err(env_var, e))?;
         Ok(!s.is_empty())
+    }
+}
+
+/// Error type for parsing tracing levels from the environment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("failed to parse tracing level from environment variable")]
+pub struct LevelParseError;
+
+impl From<ParseLevelError> for LevelParseError {
+    fn from(_: ParseLevelError) -> Self {
+        LevelParseError
+    }
+}
+
+impl FromEnvVar for tracing::Level {
+    type Error = LevelParseError;
+
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+        let s: String = std::env::var(env_var).map_err(|e| FromEnvErr::env_err(env_var, e))?;
+        s.parse()
+            .map_err(Into::into)
+            .map_err(FromEnvErr::parse_error)
     }
 }
 
