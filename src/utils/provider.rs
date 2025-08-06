@@ -8,12 +8,43 @@ use alloy::{
     },
 };
 
+/// Errors when connecting a provider
+#[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
+pub enum ProviderConnectError {
+    /// Pubsub is not available for the configured transport
+    #[error("pubsub is not available for the configured transport")]
+    PubsubUnavailable,
+    /// Custom error message
+    #[error("{0}")]
+    Custom(String),
+}
+
+impl From<TransportErrorKind> for ProviderConnectError {
+    fn from(err: TransportErrorKind) -> Self {
+        match err {
+            TransportErrorKind::Custom(err) => ProviderConnectError::Custom(err.to_string()),
+            TransportErrorKind::PubsubUnavailable => ProviderConnectError::PubsubUnavailable,
+            _ => panic!("Unexpected TransportErrorKind variant: {err:?}"),
+        }
+    }
+}
+
+impl From<TransportError> for ProviderConnectError {
+    fn from(err: TransportError) -> Self {
+        match err {
+            TransportError::Transport(e) => e.into(),
+            _ => panic!("Unexpected TransportError variant: {err:?}"),
+        }
+    }
+}
+
 impl FromEnvVar for BuiltInConnectionString {
-    type Error = TransportError;
+    type Error = ProviderConnectError;
 
     fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
         let conn_str = String::from_env_var(env_var).map_err(FromEnvErr::infallible_into)?;
-        conn_str.parse().map_err(Into::into)
+        let built_in = conn_str.parse().map_err(ProviderConnectError::from)?;
+        Ok(built_in)
     }
 }
 
@@ -41,7 +72,7 @@ impl ProviderConfig {
 }
 
 impl FromEnvVar for ProviderConfig {
-    type Error = TransportError;
+    type Error = ProviderConnectError;
 
     fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
         let connection_string = BuiltInConnectionString::from_env_var(env_var)?;
@@ -81,21 +112,21 @@ impl PubSubConfig {
 }
 
 impl TryFrom<BuiltInConnectionString> for PubSubConfig {
-    type Error = TransportError;
+    type Error = ProviderConnectError;
 
     fn try_from(connection_string: BuiltInConnectionString) -> Result<Self, Self::Error> {
         if !matches!(
             connection_string,
             BuiltInConnectionString::Ws(_, _) | BuiltInConnectionString::Ipc(_)
         ) {
-            return Err(TransportErrorKind::pubsub_unavailable());
+            return Err(ProviderConnectError::PubsubUnavailable);
         }
         Ok(Self { connection_string })
     }
 }
 
 impl FromEnvVar for PubSubConfig {
-    type Error = TransportError;
+    type Error = ProviderConnectError;
 
     fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
         let cs = BuiltInConnectionString::from_env_var(env_var)?;
@@ -135,5 +166,20 @@ impl PubSubConnect for PubSubConfig {
                 _ => unreachable!("can't instantiate http variant"),
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::utils::from_env::FromEnv;
+
+    #[derive(FromEnv, Debug, Clone, PartialEq, Eq)]
+    #[from_env(crate)]
+    struct CompileCheck {
+        #[from_env(var = "COOL_DUDE", desc = "provider")]
+        cool_dude: ProviderConfig,
+        #[from_env(var = "COOL_DUDE2", desc = "provider2")]
+        cool_dude2: PubSubConfig,
     }
 }
