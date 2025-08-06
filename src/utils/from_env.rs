@@ -278,7 +278,7 @@ pub fn parse_env_if_present<T: FromStr>(env_var: &str) -> Result<T, FromEnvErr<T
 ///
 pub trait FromEnv: core::fmt::Debug + Sized + 'static {
     /// Error type produced when loading from the environment.
-    type Error: core::error::Error + Clone;
+    type Error: core::error::Error + Clone + PartialEq + Eq;
 
     /// Get the required environment variable names for this type.
     ///
