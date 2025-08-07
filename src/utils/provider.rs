@@ -176,6 +176,7 @@ mod test {
 
     #[derive(FromEnv, Debug, Clone, PartialEq, Eq)]
     #[from_env(crate)]
+    #[allow(dead_code)]
     struct CompileCheck {
         #[from_env(var = "COOL_DUDE", desc = "provider")]
         cool_dude: ProviderConfig,
