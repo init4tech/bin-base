@@ -81,5 +81,11 @@ pub mod deps {
 pub fn init4() -> Option<utils::otlp::OtelGuard> {
     let guard = utils::tracing::init_tracing();
     utils::metrics::init_metrics();
+
+    // This will install the AWS-LC-Rust TLS provider for rustls, if no other
+    // provider has been installed yet
+    #[cfg(feature = "rustls")]
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
     guard
 }
