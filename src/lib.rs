@@ -38,7 +38,7 @@ pub mod utils {
     /// Alloy Provider configuration and instantiation
     pub mod provider;
 
-    #[cfg(feature = "alloy")]
+    #[cfg(feature = "aws")]
     /// Signer using a local private key or AWS KMS key.
     pub mod signer;
 
