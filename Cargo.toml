@@ -4,7 +4,7 @@ name = "init4-bin-base"
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
 
-version = "0.11.0"
+version = "0.12.0"
 edition = "2021"
 rust-version = "1.81"
 authors = ["init4", "James Prestwich"]
@@ -20,7 +20,7 @@ signet-constants = { version = "0.10.0" }
 signet-tx-cache = { version = "0.10.0", optional = true }
 
 # alloy
-alloy = { version = "1.0.25", optional = true, default-features = false, features = ["std", "signer-aws", "signer-local", "consensus", "network"] }
+alloy = { version = "1.0.25", optional = true, default-features = false, features = ["std", "signer-local", "consensus", "network"] }
 
 # Tracing
 tracing = "0.1.40"
@@ -70,7 +70,8 @@ tokio = { version = "1.43.0", features = ["macros"] }
 
 [features]
 default = ["alloy", "rustls"]
-alloy = ["dep:alloy", "dep:async-trait", "dep:aws-config", "dep:aws-sdk-kms"]
+alloy = ["dep:alloy"]
+aws = ["alloy", "alloy?/signer-aws", "dep:async-trait", "dep:aws-config", "dep:aws-sdk-kms"]
 perms = ["dep:oauth2", "dep:tokio", "dep:reqwest", "dep:signet-tx-cache", "dep:eyre", "dep:axum", "dep:tower"]
 rustls = ["dep:rustls", "rustls/aws-lc-rs"]
 
