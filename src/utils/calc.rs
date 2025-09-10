@@ -1,4 +1,6 @@
 use crate::utils::from_env::FromEnv;
+use signet_constants::KnownChains;
+use std::str::FromStr;
 
 /// A slot calculator, which can calculate slot numbers, windows, and offsets
 /// for a given chain.
@@ -270,6 +272,22 @@ impl SlotCalculator {
 
         self.slot_containing(timestamp)
             .and_then(|slot| slot.checked_sub(1))
+    }
+}
+
+impl From<KnownChains> for SlotCalculator {
+    fn from(value: KnownChains) -> Self {
+        match value {
+            KnownChains::Pecorino => SlotCalculator::pecorino_host(),
+        }
+    }
+}
+
+impl FromStr for SlotCalculator {
+    type Err = signet_constants::ParseChainError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(SlotCalculator::from(KnownChains::from_str(s)?))
     }
 }
 
