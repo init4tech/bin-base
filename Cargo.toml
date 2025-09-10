@@ -4,10 +4,10 @@ name = "init4-bin-base"
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
 
-version = "0.12.0"
+version = "0.12.1"
 edition = "2021"
 rust-version = "1.81"
-authors = ["init4", "James Prestwich"]
+authors = ["init4", "James Prestwich", "evalir"]
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/init4tech/bin-base"
 repository = "https://github.com/init4tech/bin-base"
