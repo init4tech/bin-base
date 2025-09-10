@@ -268,19 +268,24 @@ impl FromEnv for SlotCalculator {
     fn inventory() -> Vec<&'static EnvItemInfo> {
         vec![
             &EnvItemInfo {
+                var: "CHAIN_NAME",
+                description: "The name of the chain. If set, the other environment variables are ignored.",
+                optional: true,
+            },
+            &EnvItemInfo {
                 var: "START_TIMESTAMP",
-                description: "The start timestamp of the chain in seconds",
-                optional: false,
+                description: "The start timestamp of the chain in seconds. Required if CHAIN_NAME is not set.",
+                optional: true,
             },
             &EnvItemInfo {
                 var: "SLOT_OFFSET",
-                description: "The number of the slot containing the start timestamp",
-                optional: false,
+                description: "The number of the slot containing the start timestamp. Required if CHAIN_NAME is not set.",
+                optional: true,
             },
             &EnvItemInfo {
                 var: "SLOT_DURATION",
-                description: "The slot duration of the chain in seconds",
-                optional: false,
+                description: "The slot duration of the chain in seconds. Required if CHAIN_NAME is not set.",
+                optional: true,
             },
         ]
     }
