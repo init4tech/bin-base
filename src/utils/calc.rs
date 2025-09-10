@@ -1,7 +1,6 @@
-use std::str::FromStr;
-
 use crate::utils::from_env::FromEnv;
 use signet_constants::KnownChains;
+use std::str::FromStr;
 
 /// A slot calculator, which can calculate slot numbers, windows, and offsets
 /// for a given chain.
