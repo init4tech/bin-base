@@ -290,7 +290,6 @@ impl FromEnv for SlotCalculator {
             return Ok(slot_calculator);
         }
 
-        // Else, look for the individual chain constants
         let start_timestamp = FromEnvVar::from_env_var("START_TIMESTAMP")?;
         let slot_offset = FromEnvVar::from_env_var("SLOT_OFFSET")?;
         let slot_duration = FromEnvVar::from_env_var("SLOT_DURATION")?;
