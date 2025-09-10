@@ -1,6 +1,6 @@
-use crate::utils::from_env::FromEnv;
+use crate::utils::from_env::{EnvItemInfo, FromEnv, FromEnvErr, FromEnvVar};
 use signet_constants::KnownChains;
-use std::str::FromStr;
+use std::{num::ParseIntError, str::FromStr};
 
 /// A slot calculator, which can calculate slot numbers, windows, and offsets
 /// for a given chain.
@@ -51,16 +51,11 @@ use std::str::FromStr;
 /// The `+ 1` is added because the first slot is the slot at `slot_offset`,
 /// which ENDS at `start_timestamp`. I.e. a timestamp at `start_timestamp` is
 /// in slot `slot_offset + 1`.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Deserialize, FromEnv)]
-#[from_env(crate)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Deserialize)]
 pub struct SlotCalculator {
     /// The start timestamp. This is the timestamp of the header to start the
     /// PoS chain. That header occupies a specific slot (the `slot_offset`). The
     /// `start_timestamp` is the END of that slot.
-    #[from_env(
-        var = "START_TIMESTAMP",
-        desc = "The start timestamp of the chain in seconds"
-    )]
     start_timestamp: u64,
 
     /// This is the number of the slot containing the block which contains the
@@ -69,17 +64,9 @@ pub struct SlotCalculator {
     /// This is needed for chains that contain a merge (like Ethereum Mainnet),
     /// or for chains with missed slots at the start of the chain (like
     /// Holesky).
-    #[from_env(
-        var = "SLOT_OFFSET",
-        desc = "The number of the slot containing the start timestamp"
-    )]
     slot_offset: usize,
 
     /// The slot duration (in seconds).
-    #[from_env(
-        var = "SLOT_DURATION",
-        desc = "The slot duration of the chain in seconds"
-    )]
     slot_duration: u64,
 }
 
@@ -272,6 +259,47 @@ impl SlotCalculator {
 
         self.slot_containing(timestamp)
             .and_then(|slot| slot.checked_sub(1))
+    }
+}
+
+impl FromEnv for SlotCalculator {
+    type Error = FromEnvErr<ParseIntError>;
+
+    fn inventory() -> Vec<&'static EnvItemInfo> {
+        vec![
+            &EnvItemInfo {
+                var: "START_TIMESTAMP",
+                description: "The start timestamp of the chain in seconds",
+                optional: false,
+            },
+            &EnvItemInfo {
+                var: "SLOT_OFFSET",
+                description: "The number of the slot containing the start timestamp",
+                optional: false,
+            },
+            &EnvItemInfo {
+                var: "SLOT_DURATION",
+                description: "The slot duration of the chain in seconds",
+                optional: false,
+            },
+        ]
+    }
+
+    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+        if let Ok(slot_calculator) = SlotCalculator::from_env_var("CHAIN_NAME") {
+            return Ok(slot_calculator);
+        }
+
+        // Else, look for the individual chain constants
+        let start_timestamp = FromEnvVar::from_env_var("START_TIMESTAMP")?;
+        let slot_offset = FromEnvVar::from_env_var("SLOT_OFFSET")?;
+        let slot_duration = FromEnvVar::from_env_var("SLOT_DURATION")?;
+
+        Ok(Self {
+            start_timestamp,
+            slot_offset,
+            slot_duration,
+        })
     }
 }
 
