@@ -5,6 +5,7 @@ use signet_constants::{
 use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
 use tracing_core::metadata::ParseLevelError;
 
+use crate::utils::calc::SlotCalculator;
 /// The `derive(FromEnv)` macro.
 ///
 /// This macro generates a [`FromEnv`] implementation for the struct it is
@@ -618,7 +619,8 @@ impl_for_parseable!(
     SignetEnvironmentConstants,
     SignetSystemConstants,
     HostConstants,
-    RollupConstants
+    RollupConstants,
+    SlotCalculator
 );
 
 #[cfg(feature = "alloy")]
