@@ -35,7 +35,7 @@ impl FlashbotsConfig {
     }
 }
 
-/// A wrapper over a `Provider` that adds Flashbots MEV bundle helpers.
+/// A basic provider for common Flashbots Relay endpoints.
 #[derive(Debug)]
 pub struct Flashbots {
     /// The base URL for the Flashbots API.
@@ -43,12 +43,33 @@ pub struct Flashbots {
 
     /// Signer is loaded once at startup.
     signer: LocalOrAws,
+
+    /// The reqwest client to use for requests.
+    client: reqwest::Client,
 }
 
 impl Flashbots {
-    /// Wraps a provider with the URL and returns a new `FlashbotsProvider`.
-    pub const fn new(relay_url: url::Url, signer: LocalOrAws) -> Self {
-        Self { relay_url, signer }
+    /// Instantiate a new provider from the URL and signer.
+    pub fn new(relay_url: url::Url, signer: LocalOrAws) -> Self {
+        Self {
+            relay_url,
+            client: Default::default(),
+            signer,
+        }
+    }
+
+    /// Instantiate a new provider from the URL and signer, with a specific
+    /// Reqwest client.
+    pub const fn new_with_client(
+        relay_url: url::Url,
+        signer: LocalOrAws,
+        client: reqwest::Client,
+    ) -> Self {
+        Self {
+            relay_url,
+            client,
+            signer,
+        }
     }
 
     /// Sends a bundle  via `mev_sendBundle`.
@@ -63,7 +84,7 @@ impl Flashbots {
         Ok(())
     }
 
-    /// Fetches the bundle status by hash
+    /// Fetch the bundle status by hash.
     pub async fn bundle_status(
         &self,
         hash: EthBundleHash,
@@ -77,7 +98,8 @@ impl Flashbots {
         Ok(())
     }
 
-    /// Makes a raw JSON-RPC call with the Flashbots signature header to the method with the given params.
+    /// Make a raw JSON-RPC call with the Flashbots signature header to the
+    /// method with the given params.
     async fn raw_call<Params: RpcSend, Payload: RpcRecv>(
         &self,
         method: &str,
@@ -93,8 +115,8 @@ impl Flashbots {
 
         let value = self.compute_signature(&body_bz).await?;
 
-        let client = reqwest::Client::new();
-        let resp = client
+        let resp = self
+            .client
             .post(self.relay_url.as_str())
             .header(CONTENT_TYPE, "application/json")
             .header("X-Flashbots-Signature", value)
@@ -112,7 +134,8 @@ impl Flashbots {
         }
     }
 
-    /// Builds an EIP-191 signature for the given body bytes.
+    /// Builds an EIP-191 signature for the given body bytes. This signature is
+    /// used to authenticate to the relay API via a header
     async fn compute_signature(&self, body_bz: &[u8]) -> Result<String, eyre::Error> {
         let payload = keccak256(body_bz).to_string();
         let signature = self.signer.sign_message(payload.as_ref()).await?;

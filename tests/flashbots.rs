@@ -33,6 +33,7 @@ fn get_test_provider() -> Flashbots {
     Flashbots::new(FLASHBOTS_URL.clone(), BUILDER_KEY.clone())
 }
 
+#[allow(clippy::type_complexity)]
 fn get_sepolia() -> FillProvider<
     JoinFill<
         JoinFill<

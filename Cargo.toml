@@ -6,7 +6,7 @@ keywords = ["init4", "bin", "base"]
 
 version = "0.12.4"
 edition = "2021"
-rust-version = "1.81"
+rust-version = "1.83"
 authors = ["init4", "James Prestwich", "evalir"]
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/init4tech/bin-base"
@@ -76,7 +76,6 @@ flashbots = ["alloy", "aws", "alloy?/json-rpc", "dep:eyre", "dep:reqwest", "dep:
 aws = ["alloy", "alloy?/signer-aws", "dep:async-trait", "dep:aws-config", "dep:aws-sdk-kms"]
 perms = ["dep:oauth2", "dep:tokio", "dep:reqwest", "dep:signet-tx-cache", "dep:eyre", "dep:axum", "dep:tower"]
 rustls = ["dep:rustls", "rustls/aws-lc-rs"]
-serde_json = ["dep:serde_json"]
 
 [[example]]
 name = "oauth"
