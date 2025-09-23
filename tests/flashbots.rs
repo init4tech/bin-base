@@ -21,13 +21,13 @@ use init4_bin_base::utils::{flashbots::Flashbots, signer::LocalOrAws};
 use std::sync::LazyLock;
 use url::Url;
 
-const FLASHBOTS_URL: LazyLock<Url> = LazyLock::new(|| {
+static FLASHBOTS_URL: LazyLock<Url> = LazyLock::new(|| {
     Url::parse("https://relay-sepolia.flashbots.net:443").expect("valid flashbots url")
 });
-const BUILDER_KEY: LazyLock<LocalOrAws> = LazyLock::new(|| {
+static BUILDER_KEY: LazyLock<LocalOrAws> = LazyLock::new(|| {
     LocalOrAws::Local(PrivateKeySigner::from_bytes(&B256::repeat_byte(0x02)).unwrap())
 });
-const TEST_PROVIDER: LazyLock<Flashbots> = LazyLock::new(get_test_provider);
+static TEST_PROVIDER: LazyLock<Flashbots> = LazyLock::new(get_test_provider);
 
 fn get_test_provider() -> Flashbots {
     Flashbots::new(FLASHBOTS_URL.clone(), BUILDER_KEY.clone())
