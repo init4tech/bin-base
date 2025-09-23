@@ -263,7 +263,7 @@ impl SlotCalculator {
 }
 
 impl FromEnv for SlotCalculator {
-    type Error = FromEnvErr<ParseIntError>;
+    type Error = ParseIntError;
 
     fn inventory() -> Vec<&'static EnvItemInfo> {
         vec![
