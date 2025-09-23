@@ -4,7 +4,7 @@ name = "init4-bin-base"
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
 
-version = "0.12.3"
+version = "0.12.4"
 edition = "2021"
 rust-version = "1.81"
 authors = ["init4", "James Prestwich", "evalir"]
@@ -59,6 +59,7 @@ aws-config = { version = "1.1.7", optional = true }
 aws-sdk-kms = { version = "1.15.0", optional = true }
 reqwest = { version = "0.12.15", optional = true }
 rustls = { version = "0.23.31", optional = true }
+serde_json = { version = "1.0.145", optional = true }
 
 [dev-dependencies]
 ajj = "0.3.1"
@@ -71,9 +72,11 @@ tokio = { version = "1.43.0", features = ["macros"] }
 [features]
 default = ["alloy", "rustls"]
 alloy = ["dep:alloy"]
+flashbots = ["alloy", "aws", "alloy?/json-rpc", "dep:eyre", "dep:reqwest", "dep:serde_json"]
 aws = ["alloy", "alloy?/signer-aws", "dep:async-trait", "dep:aws-config", "dep:aws-sdk-kms"]
 perms = ["dep:oauth2", "dep:tokio", "dep:reqwest", "dep:signet-tx-cache", "dep:eyre", "dep:axum", "dep:tower"]
 rustls = ["dep:rustls", "rustls/aws-lc-rs"]
+serde_json = ["dep:serde_json"]
 
 [[example]]
 name = "oauth"

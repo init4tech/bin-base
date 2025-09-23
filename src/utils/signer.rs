@@ -1,6 +1,7 @@
 use crate::utils::from_env::FromEnv;
 use alloy::{
     consensus::SignableTransaction,
+    network::{Ethereum, EthereumWallet, IntoWallet},
     primitives::{Address, ChainId, B256},
     signers::{
         aws::{AwsSigner, AwsSignerError},
@@ -167,5 +168,13 @@ impl alloy::signers::Signer<Signature> for LocalOrAws {
             LocalOrAws::Local(signer) => signer.set_chain_id(chain_id),
             LocalOrAws::Aws(signer) => signer.set_chain_id(chain_id),
         }
+    }
+}
+
+impl IntoWallet<Ethereum> for LocalOrAws {
+    type NetworkWallet = EthereumWallet;
+
+    fn into_wallet(self) -> Self::NetworkWallet {
+        EthereumWallet::from(self)
     }
 }
