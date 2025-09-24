@@ -7,8 +7,7 @@ use tracing_subscriber::{filter::EnvFilter, layer::SubscriberExt, util::Subscrib
 const TRACING_LOG_JSON: &str = "TRACING_LOG_JSON";
 
 /// Install a format layer based on the `TRACING_LOG_JSON` environment
-/// variable, and then install the registr
-///
+/// variable, and then install the registry.
 macro_rules! install_fmt {
     (json @ $registry:ident, $filter:ident) => {{
         let fmt = tracing_subscriber::fmt::layer().json().with_filter($filter);
