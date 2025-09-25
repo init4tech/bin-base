@@ -1,7 +1,7 @@
 //! A generic Flashbots bundle API wrapper.
 use crate::utils::signer::LocalOrAws;
 use alloy::{
-    primitives::{keccak256, BlockNumber},
+    primitives::keccak256,
     rpc::{
         json_rpc::{Id, Response, ResponsePayload, RpcRecv, RpcSend},
         types::mev::{EthBundleHash, MevSendBundle, SimBundleResponse},
@@ -10,7 +10,6 @@ use alloy::{
 };
 use init4_from_env_derive::FromEnv;
 use reqwest::header::CONTENT_TYPE;
-use serde_json::json;
 use std::borrow::Cow;
 
 /// Configuration for the Flashbots provider.
@@ -80,21 +79,7 @@ impl Flashbots {
     /// Simulate a bundle via `mev_simBundle`.
     pub async fn simulate_bundle(&self, bundle: &MevSendBundle) -> eyre::Result<()> {
         let resp: SimBundleResponse = self.raw_call("mev_simBundle", &[bundle]).await?;
-        dbg!("successfully simulated bundle", &resp);
-        Ok(())
-    }
-
-    /// Fetch the bundle status by hash.
-    pub async fn bundle_status(
-        &self,
-        hash: EthBundleHash,
-        block_number: BlockNumber,
-    ) -> eyre::Result<()> {
-        let params = json!({ "bundleHash": hash, "blockNumber": block_number });
-        let _resp: serde_json::Value = self
-            .raw_call("flashbots_getBundleStatsV2", &[params])
-            .await?;
-
+        dbg!("sim bundle response ###", resp);
         Ok(())
     }
 
@@ -139,7 +124,6 @@ impl Flashbots {
     async fn compute_signature(&self, body_bz: &[u8]) -> Result<String, eyre::Error> {
         let payload = keccak256(body_bz).to_string();
         let signature = self.signer.sign_message(payload.as_ref()).await?;
-        dbg!(signature.to_string());
         let address = self.signer.address();
         let value = format!("{address}:{signature}");
         Ok(value)
