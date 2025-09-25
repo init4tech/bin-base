@@ -2,10 +2,11 @@
 
 use alloy::{
     consensus::constants::GWEI_TO_WEI,
-    eips::Encodable2718,
+    eips::{BlockId, Encodable2718},
     network::EthereumWallet,
     primitives::{B256, U256},
     providers::{
+        ext::MevApi,
         fillers::{
             BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller,
             WalletFiller,
@@ -13,11 +14,15 @@ use alloy::{
         Identity, Provider, ProviderBuilder, SendableTx,
     },
     rpc::types::{
-        mev::{BundleItem, Inclusion, MevSendBundle, Privacy, ProtocolVersion},
+        mev::{
+            BundleItem, EthCallBundle, EthSendBundle, EthSendPrivateTransaction, Inclusion,
+            MevSendBundle, Privacy, PrivateTransactionPreferences, ProtocolVersion,
+        },
         TransactionRequest,
     },
     signers::{local::PrivateKeySigner, Signer},
 };
+use eyre::Context;
 use init4_bin_base::{
     deps::tracing::debug,
     deps::tracing_subscriber::{
@@ -58,7 +63,7 @@ type SepoliaProvider = FillProvider<
 >;
 
 #[allow(clippy::type_complexity)]
-fn get_sepolia(builder_key: LocalOrAws) -> SepoliaProvider {
+fn get_sepolia_host(builder_key: LocalOrAws) -> SepoliaProvider {
     ProviderBuilder::new()
         .wallet(builder_key.clone())
         .connect_http(
@@ -72,7 +77,7 @@ fn get_sepolia(builder_key: LocalOrAws) -> SepoliaProvider {
 #[ignore = "integration test"]
 async fn test_simulate_valid_bundle_sepolia() {
     let flashbots = &*TEST_PROVIDER;
-    let sepolia = get_sepolia(DEFAULT_BUILDER_KEY.clone());
+    let sepolia = get_sepolia_host(DEFAULT_BUILDER_KEY.clone());
 
     let req = TransactionRequest::default()
         .to(DEFAULT_BUILDER_KEY.address())
@@ -121,7 +126,7 @@ async fn test_send_valid_bundle_sepolia() {
         .expect("failed to load builder key");
 
     let flashbots = Flashbots::new(FLASHBOTS_URL.clone(), builder_key.clone());
-    let sepolia = get_sepolia(builder_key.clone());
+    let sepolia = get_sepolia_host(builder_key.clone());
 
     let req = TransactionRequest::default()
         .to(builder_key.address())
@@ -159,6 +164,7 @@ async fn test_send_valid_bundle_sepolia() {
         bundle_body,
     );
     bundle.inclusion = Inclusion::at_block(target_block);
+
     // bundle.privacy = Some(Privacy::default().with_builders(Some(vec![
     //     "flashbots".to_string(),
     //     "rsync".to_string(),
@@ -167,7 +173,10 @@ async fn test_send_valid_bundle_sepolia() {
     // ])));
 
     dbg!(latest_block);
-    dbg!(&bundle.inclusion.block_number(), &bundle.inclusion.max_block_number());
+    dbg!(
+        &bundle.inclusion.block_number(),
+        &bundle.inclusion.max_block_number()
+    );
 
     flashbots.simulate_bundle(&bundle).await.unwrap();
 
@@ -293,4 +302,239 @@ pub fn setup_logging() {
     let fmt = fmt::layer().with_filter(filter);
     let registry = registry().with(fmt);
     let _ = registry.try_init();
+}
+
+#[tokio::test]
+#[ignore = "integration test"]
+async fn test_alloy_flashbots_sepolia() {
+    setup_logging();
+
+    let raw_key = env::var("BUILDER_KEY").expect("BUILDER_KEY must be set");
+    let builder_key = LocalOrAws::load(&raw_key, Some(11155111))
+        .await
+        .expect("failed to load builder key");
+
+    let flashbots = ProviderBuilder::new()
+        .wallet(builder_key.clone())
+        .connect_http("https://relay-sepolia.flashbots.net".parse().unwrap());
+
+    let sepolia_host = get_sepolia_host(builder_key.clone());
+
+    let req = TransactionRequest::default()
+        .to(builder_key.address())
+        .value(U256::from(0u64))
+        .gas_limit(21_000)
+        .max_fee_per_gas((50 * GWEI_TO_WEI).into())
+        .max_priority_fee_per_gas((2 * GWEI_TO_WEI).into())
+        .from(builder_key.address());
+
+    let block = sepolia_host
+        .get_block(BlockId::latest())
+        .await
+        .unwrap()
+        .unwrap();
+    let target_block = block.number() + 1;
+    dbg!("preparing bundle for", target_block);
+
+    let SendableTx::Envelope(tx) = sepolia_host.fill(req.clone()).await.unwrap() else {
+        panic!("expected filled tx");
+    };
+    dbg!("prepared transaction request", tx.clone());
+    let tx_bytes = tx.encoded_2718();
+
+    let bundle = EthSendBundle {
+        txs: vec![tx_bytes.clone().into()],
+        block_number: target_block,
+        min_timestamp: None,
+        max_timestamp: None,
+        reverting_tx_hashes: vec![],
+        replacement_uuid: None,
+        dropping_tx_hashes: vec![],
+        refund_percent: None,
+        refund_recipient: None,
+        refund_tx_hashes: vec![],
+        ..Default::default()
+    };
+
+    let call_bundle = EthCallBundle {
+        txs: vec![tx_bytes.clone().into()],
+        block_number: target_block,
+        ..Default::default()
+    };
+    let sim = flashbots
+        .call_bundle(call_bundle)
+        .with_auth(builder_key.clone());
+    dbg!(sim.await.unwrap());
+
+    let result = flashbots.send_bundle(bundle).with_auth(builder_key.clone());
+    dbg!(result.await.unwrap());
+}
+
+#[tokio::test]
+#[ignore = "integration test"]
+async fn test_mev_endpoints() {
+    setup_logging();
+
+    let raw_key = env::var("BUILDER_KEY").expect("BUILDER_KEY must be set");
+    let builder_key = LocalOrAws::load(&raw_key, Some(11155111))
+        .await
+        .expect("failed to load builder key");
+
+    let flashbots = ProviderBuilder::new()
+        .wallet(builder_key.clone())
+        .connect_http("https://relay-sepolia.flashbots.net".parse().unwrap());
+
+    let old_flashbots = Flashbots::new(
+        "https://relay-sepolia.flashbots.net".parse().unwrap(),
+        builder_key.clone(),
+    );
+
+    let sepolia_host = get_sepolia_host(builder_key.clone());
+
+    let block = sepolia_host
+        .get_block(BlockId::latest())
+        .await
+        .unwrap()
+        .unwrap();
+    let target_block = block.number() + 1;
+    dbg!("preparing bundle for", target_block);
+
+    let req = TransactionRequest::default()
+        .to(builder_key.address())
+        .value(U256::from(0u64))
+        .gas_limit(21_000)
+        .max_fee_per_gas((50 * GWEI_TO_WEI).into())
+        .max_priority_fee_per_gas((2 * GWEI_TO_WEI).into())
+        .from(builder_key.address());
+
+    let SendableTx::Envelope(tx) = sepolia_host.fill(req.clone()).await.unwrap() else {
+        panic!("expected filled tx");
+    };
+    dbg!("prepared transaction request", tx.clone());
+    let tx_bytes = tx.encoded_2718();
+
+    let bundle = MevSendBundle::new(
+        target_block,
+        None,
+        ProtocolVersion::V0_1,
+        vec![BundleItem::Tx {
+            tx: tx_bytes.clone().into(),
+            can_revert: false,
+        }],
+    );
+    dbg!("bundle contents", &bundle);
+
+    let _ = old_flashbots.simulate_bundle(&bundle).await.unwrap();
+
+    let result = flashbots
+        .send_mev_bundle(bundle)
+        .with_auth(builder_key.clone());
+    dbg!("send mev bundle:", result.await.unwrap());
+
+    let result = flashbots
+        .send_private_transaction(EthSendPrivateTransaction {
+            tx: tx_bytes.into(),
+            max_block_number: Some(target_block + 5),
+            preferences: PrivateTransactionPreferences::default(),
+        })
+        .with_auth(builder_key.clone());
+    dbg!("send private transaction", result.await.unwrap());
+}
+
+#[tokio::test]
+#[ignore = "integration test"]
+async fn test_alloy_flashbots_mainnet() {
+    setup_logging();
+
+    let raw_key = env::var("BUILDER_KEY").expect("BUILDER_KEY must be set");
+    let builder_key = LocalOrAws::load(&raw_key, Some(11155111))
+        .await
+        .expect("failed to load builder key");
+
+    let flashbots = ProviderBuilder::new()
+        .wallet(builder_key.clone())
+        .connect_http("https://relay-sepolia.flashbots.net".parse().unwrap());
+
+    let sepolia_host = get_sepolia_host(builder_key.clone());
+
+    let req = TransactionRequest::default()
+        .to(builder_key.address())
+        .value(U256::from(0u64))
+        .gas_limit(21_000)
+        .max_fee_per_gas((50 * GWEI_TO_WEI).into())
+        .max_priority_fee_per_gas((2 * GWEI_TO_WEI).into())
+        .from(builder_key.address());
+
+    let block = sepolia_host
+        .get_block(BlockId::latest())
+        .await
+        .unwrap()
+        .unwrap();
+    let target_block = block.number() + 1;
+    dbg!("preparing bundle for", target_block);
+
+    let target_block = block.number() + 1;
+    dbg!("preparing bundle for", target_block);
+
+    let SendableTx::Envelope(tx) = sepolia_host.fill(req.clone()).await.unwrap() else {
+        panic!("expected filled tx");
+    };
+    dbg!("prepared transaction request", tx.clone());
+    let tx_bytes = tx.encoded_2718();
+
+    let bundle = EthSendBundle {
+        txs: vec![tx_bytes.clone().into()],
+        block_number: target_block,
+        ..Default::default()
+    };
+
+    let call_bundle = EthCallBundle {
+        txs: vec![tx_bytes.clone().into()],
+        block_number: target_block,
+        ..Default::default()
+    };
+
+    let sim = flashbots
+        .call_bundle(call_bundle)
+        .with_auth(builder_key.clone());
+    dbg!(sim.await.unwrap());
+
+    let result = flashbots.send_bundle(bundle).with_auth(builder_key.clone());
+    dbg!(result.await.unwrap());
+}
+
+#[tokio::test]
+#[ignore = "integration test"]
+pub async fn test_send_single_tx_sepolia() {
+    setup_logging();
+
+    let raw_key = env::var("BUILDER_KEY").expect("BUILDER_KEY must be set");
+    let builder_key = LocalOrAws::load(&raw_key, Some(11155111))
+        .await
+        .expect("failed to load builder key");
+
+    let sepolia_host = get_sepolia_host(builder_key.clone());
+
+    let req = TransactionRequest::default()
+        .to(builder_key.address())
+        .value(U256::from(0u64))
+        .gas_limit(21_000)
+        .max_fee_per_gas((50 * GWEI_TO_WEI).into())
+        .max_priority_fee_per_gas((2 * GWEI_TO_WEI).into())
+        .from(builder_key.address());
+
+    let SendableTx::Envelope(tx) = sepolia_host.fill(req.clone()).await.unwrap() else {
+        panic!("expected filled tx");
+    };
+    dbg!("prepared transaction request", tx.clone());
+    let tx_bytes = tx.encoded_2718();
+
+    let pending_tx = sepolia_host
+        .send_raw_transaction(&tx_bytes)
+        .await
+        .expect("should send tx")
+        .watch()
+        .await
+        .unwrap();
+    dbg!(pending_tx);
 }

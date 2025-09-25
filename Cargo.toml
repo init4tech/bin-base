@@ -20,7 +20,7 @@ signet-constants = { version = "0.11.1" }
 signet-tx-cache = { version = "0.11.1", optional = true }
 
 # alloy
-alloy = { version = "1.0.35", optional = true, default-features = false, features = ["std", "signer-local", "consensus", "network"] }
+alloy = { version = "1.0.35", optional = true, default-features = false, features = ["std", "signer-local", "consensus", "network", "provider-mev-api"] }
 
 # Tracing
 tracing = "0.1.40"

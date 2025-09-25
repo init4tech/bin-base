@@ -73,13 +73,15 @@ impl Flashbots {
 
     /// Sends a bundle  via `mev_sendBundle`.
     pub async fn send_bundle(&self, bundle: &MevSendBundle) -> eyre::Result<EthBundleHash> {
-        self.raw_call("mev_sendBundle", &[bundle]).await
+        let resp = self.raw_call("mev_sendBundle", &[bundle]).await?;
+        dbg!("sim bundle response", &resp);
+        Ok(resp)
     }
 
     /// Simulate a bundle via `mev_simBundle`.
     pub async fn simulate_bundle(&self, bundle: &MevSendBundle) -> eyre::Result<()> {
         let resp: SimBundleResponse = self.raw_call("mev_simBundle", &[bundle]).await?;
-        dbg!("sim bundle response ###", resp);
+        dbg!("send bundle response ###", resp);
         Ok(())
     }
 
