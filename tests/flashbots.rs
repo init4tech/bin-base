@@ -15,8 +15,8 @@ use alloy::{
     },
     rpc::types::{
         mev::{
-            BundleItem, EthCallBundle, EthSendBundle, EthSendPrivateTransaction, Inclusion,
-            MevSendBundle, Privacy, PrivateTransactionPreferences, ProtocolVersion,
+            BundleItem, EthCallBundle, EthSendBundle, Inclusion, MevSendBundle, Privacy,
+            ProtocolVersion,
         },
         TransactionRequest,
     },
