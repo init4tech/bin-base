@@ -22,7 +22,6 @@ use alloy::{
     },
     signers::{local::PrivateKeySigner, Signer},
 };
-use eyre::Context;
 use init4_bin_base::{
     deps::tracing::debug,
     deps::tracing_subscriber::{
@@ -258,52 +257,6 @@ async fn test_send_valid_bundle_mainnet() {
     assert!(resp.bundle_hash != B256::ZERO);
 }
 
-/// Asserts that a tx was included in Sepolia within `deadline` seconds.
-async fn assert_tx_included(sepolia: &SepoliaProvider, tx_hash: B256, deadline: u64) {
-    let now = Instant::now();
-    let deadline = now + Duration::from_secs(deadline);
-    let mut found = false;
-
-    loop {
-        let n = Instant::now();
-        if n >= deadline {
-            break;
-        }
-
-        match sepolia.get_transaction_by_hash(tx_hash).await {
-            Ok(Some(_tx)) => {
-                found = true;
-                break;
-            }
-            Ok(None) => {
-                // Not yet present; wait and retry
-                dbg!("transaction not yet seen");
-                tokio::time::sleep(Duration::from_secs(1)).await;
-            }
-            Err(err) => {
-                // Transient error querying the provider; log and retry
-                eprintln!("warning: error querying tx: {}", err);
-                tokio::time::sleep(Duration::from_secs(1)).await;
-            }
-        }
-    }
-
-    assert!(
-        found,
-        "transaction was not seen by the provider within {:?} seconds",
-        deadline
-    );
-}
-
-/// Initializes logger for printing during testing
-pub fn setup_logging() {
-    // Initialize logging
-    let filter = EnvFilter::from_default_env();
-    let fmt = fmt::layer().with_filter(filter);
-    let registry = registry().with(fmt);
-    let _ = registry.try_init();
-}
-
 #[tokio::test]
 #[ignore = "integration test"]
 async fn test_alloy_flashbots_sepolia() {
@@ -325,7 +278,7 @@ async fn test_alloy_flashbots_sepolia() {
         .value(U256::from(0u64))
         .gas_limit(21_000)
         .max_fee_per_gas((50 * GWEI_TO_WEI).into())
-        .max_priority_fee_per_gas((2 * GWEI_TO_WEI).into())
+        .max_priority_fee_per_gas((20 * GWEI_TO_WEI).into())
         .from(builder_key.address());
 
     let block = sepolia_host
@@ -345,14 +298,6 @@ async fn test_alloy_flashbots_sepolia() {
     let bundle = EthSendBundle {
         txs: vec![tx_bytes.clone().into()],
         block_number: target_block,
-        min_timestamp: None,
-        max_timestamp: None,
-        reverting_tx_hashes: vec![],
-        replacement_uuid: None,
-        dropping_tx_hashes: vec![],
-        refund_percent: None,
-        refund_recipient: None,
-        refund_tx_hashes: vec![],
         ..Default::default()
     };
 
@@ -372,7 +317,7 @@ async fn test_alloy_flashbots_sepolia() {
 
 #[tokio::test]
 #[ignore = "integration test"]
-async fn test_mev_endpoints() {
+async fn test_mev_endpoints_sepolia() {
     setup_logging();
 
     let raw_key = env::var("BUILDER_KEY").expect("BUILDER_KEY must be set");
@@ -384,6 +329,7 @@ async fn test_mev_endpoints() {
         .wallet(builder_key.clone())
         .connect_http("https://relay-sepolia.flashbots.net".parse().unwrap());
 
+    // TEMP: Keeping this around because alloy flashbots doesn't have a simulate endpoint for `mev_simBundle`.
     let old_flashbots = Flashbots::new(
         "https://relay-sepolia.flashbots.net".parse().unwrap(),
         builder_key.clone(),
@@ -404,7 +350,7 @@ async fn test_mev_endpoints() {
         .value(U256::from(0u64))
         .gas_limit(21_000)
         .max_fee_per_gas((50 * GWEI_TO_WEI).into())
-        .max_priority_fee_per_gas((2 * GWEI_TO_WEI).into())
+        .max_priority_fee_per_gas((20 * GWEI_TO_WEI).into())
         .from(builder_key.address());
 
     let SendableTx::Envelope(tx) = sepolia_host.fill(req.clone()).await.unwrap() else {
@@ -430,15 +376,6 @@ async fn test_mev_endpoints() {
         .send_mev_bundle(bundle)
         .with_auth(builder_key.clone());
     dbg!("send mev bundle:", result.await.unwrap());
-
-    let result = flashbots
-        .send_private_transaction(EthSendPrivateTransaction {
-            tx: tx_bytes.into(),
-            max_block_number: Some(target_block + 5),
-            preferences: PrivateTransactionPreferences::default(),
-        })
-        .with_auth(builder_key.clone());
-    dbg!("send private transaction", result.await.unwrap());
 }
 
 #[tokio::test]
@@ -453,9 +390,11 @@ async fn test_alloy_flashbots_mainnet() {
 
     let flashbots = ProviderBuilder::new()
         .wallet(builder_key.clone())
-        .connect_http("https://relay-sepolia.flashbots.net".parse().unwrap());
+        .connect_http("https://relay.flashbots.net".parse().unwrap());
 
-    let sepolia_host = get_sepolia_host(builder_key.clone());
+    let mainnet = ProviderBuilder::new()
+        .wallet(builder_key.clone())
+        .connect_http("https://ethereum-rpc.publicnode.com".parse().unwrap());
 
     let req = TransactionRequest::default()
         .to(builder_key.address())
@@ -465,18 +404,14 @@ async fn test_alloy_flashbots_mainnet() {
         .max_priority_fee_per_gas((2 * GWEI_TO_WEI).into())
         .from(builder_key.address());
 
-    let block = sepolia_host
-        .get_block(BlockId::latest())
-        .await
-        .unwrap()
-        .unwrap();
+    let block = mainnet.get_block(BlockId::latest()).await.unwrap().unwrap();
     let target_block = block.number() + 1;
     dbg!("preparing bundle for", target_block);
 
     let target_block = block.number() + 1;
     dbg!("preparing bundle for", target_block);
 
-    let SendableTx::Envelope(tx) = sepolia_host.fill(req.clone()).await.unwrap() else {
+    let SendableTx::Envelope(tx) = mainnet.fill(req.clone()).await.unwrap() else {
         panic!("expected filled tx");
     };
     dbg!("prepared transaction request", tx.clone());
@@ -537,4 +472,50 @@ pub async fn test_send_single_tx_sepolia() {
         .await
         .unwrap();
     dbg!(pending_tx);
+}
+
+/// Asserts that a tx was included in Sepolia within `deadline` seconds.
+async fn assert_tx_included(sepolia: &SepoliaProvider, tx_hash: B256, deadline: u64) {
+    let now = Instant::now();
+    let deadline = now + Duration::from_secs(deadline);
+    let mut found = false;
+
+    loop {
+        let n = Instant::now();
+        if n >= deadline {
+            break;
+        }
+
+        match sepolia.get_transaction_by_hash(tx_hash).await {
+            Ok(Some(_tx)) => {
+                found = true;
+                break;
+            }
+            Ok(None) => {
+                // Not yet present; wait and retry
+                dbg!("transaction not yet seen");
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+            Err(err) => {
+                // Transient error querying the provider; log and retry
+                eprintln!("warning: error querying tx: {}", err);
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+        }
+    }
+
+    assert!(
+        found,
+        "transaction was not seen by the provider within {:?} seconds",
+        deadline
+    );
+}
+
+/// Initializes logger for printing during testing
+pub fn setup_logging() {
+    // Initialize logging
+    let filter = EnvFilter::from_default_env();
+    let fmt = fmt::layer().with_filter(filter);
+    let registry = registry().with(fmt);
+    let _ = registry.try_init();
 }
