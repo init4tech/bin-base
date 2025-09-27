@@ -4,9 +4,9 @@ name = "init4-bin-base"
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
 
-version = "0.12.3"
+version = "0.13.0"
 edition = "2021"
-rust-version = "1.81"
+rust-version = "1.85"
 authors = ["init4", "James Prestwich", "evalir"]
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/init4tech/bin-base"
@@ -16,11 +16,11 @@ repository = "https://github.com/init4tech/bin-base"
 init4-from-env-derive =  "0.1.0"
 
 # Signet
-signet-constants = { version = "0.10.0" }
-signet-tx-cache = { version = "0.10.0", optional = true }
+signet-constants = { version = "0.11.0" }
+signet-tx-cache = { version = "0.11.0", optional = true }
 
 # alloy
-alloy = { version = "1.0.25", optional = true, default-features = false, features = ["std", "signer-local", "consensus", "network"] }
+alloy = { version = "1.0.35", optional = true, default-features = false, features = ["std", "signer-local", "consensus", "network"] }
 
 # Tracing
 tracing = "0.1.40"
@@ -86,11 +86,11 @@ path = "examples/tx_cache.rs"
 required-features = ["perms"]
 
 
-# [patch.crates-io]
-# signet-bundle = { path = "../sdk/crates/bundle"}
-# signet-constants = { path = "../sdk/crates/constants"}
-# signet-evm = { path = "../sdk/crates/evm"}
-# signet-extract = { path = "../sdk/crates/extract"}
-# signet-tx-cache = { path = "../sdk/crates/tx-cache"}
-# signet-types = { path = "../sdk/crates/types"}
-# signet-zenith = { path = "../sdk/crates/zenith"}
+[patch.crates-io]
+signet-bundle = { path = "../signet-sdk/crates/bundle"}
+signet-constants = { path = "../signet-sdk/crates/constants"}
+signet-evm = { path = "../signet-sdk/crates/evm"}
+signet-extract = { path = "../signet-sdk/crates/extract"}
+signet-tx-cache = { path = "../signet-sdk/crates/tx-cache"}
+signet-types = { path = "../signet-sdk/crates/types"}
+signet-zenith = { path = "../signet-sdk/crates/zenith"}
