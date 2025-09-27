@@ -1,5 +1,5 @@
 use signet_constants::{
-    HostConstants, RollupConstants, SignetConstants, SignetEnvironmentConstants,
+    HostConstants, ParseChainError, RollupConstants, SignetConstants, SignetEnvironmentConstants,
     SignetSystemConstants,
 };
 use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
@@ -667,6 +667,23 @@ impl FromEnvVar for tracing::Level {
         s.parse()
             .map_err(Into::into)
             .map_err(FromEnvErr::parse_error)
+    }
+}
+
+impl FromEnv for SignetSystemConstants {
+    type Error = ParseChainError;
+
+    fn inventory() -> Vec<&'static EnvItemInfo> {
+        vec![&EnvItemInfo {
+            var: "CHAIN_NAME",
+            description:
+                "The name of the chain. If set, the other environment variables are ignored.",
+            optional: true,
+        }]
+    }
+
+    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+        SignetSystemConstants::from_env_var("CHAIN_NAME")
     }
 }
 
