@@ -86,3 +86,12 @@ required-features = ["perms"]
 name = "tx_cache"
 path = "examples/tx_cache.rs"
 required-features = ["perms"]
+
+# [patch.crates-io]
+# signet-bundle = { path = "../sdk/crates/bundle"}
+# signet-constants = { path = "../sdk/crates/constants"}
+# signet-evm = { path = "../sdk/crates/evm"}
+# signet-extract = { path = "../sdk/crates/extract"}
+# signet-tx-cache = { path = "../sdk/crates/tx-cache"}
+# signet-types = { path = "../sdk/crates/types"}
+# signet-zenith = { path = "../sdk/crates/zenith"}
