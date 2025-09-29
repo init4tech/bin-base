@@ -311,6 +311,7 @@ impl From<KnownChains> for SlotCalculator {
     fn from(value: KnownChains) -> Self {
         match value {
             KnownChains::Pecorino => SlotCalculator::pecorino_host(),
+            KnownChains::Test => SlotCalculator::new(12, 0, 12),
         }
     }
 }
