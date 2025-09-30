@@ -406,15 +406,10 @@ async fn test_alloy_flashbots_mainnet() {
 
     let block = mainnet.get_block(BlockId::latest()).await.unwrap().unwrap();
     let target_block = block.number() + 1;
-    dbg!("preparing bundle for", target_block);
-
-    let target_block = block.number() + 1;
-    dbg!("preparing bundle for", target_block);
-
     let SendableTx::Envelope(tx) = mainnet.fill(req.clone()).await.unwrap() else {
         panic!("expected filled tx");
     };
-    dbg!("prepared transaction request", tx.clone());
+    dbg!("prepared transaction request", tx.clone(), target_block);
     let tx_bytes = tx.encoded_2718();
 
     let bundle = EthSendBundle {
@@ -472,6 +467,101 @@ pub async fn test_send_single_tx_sepolia() {
         .await
         .unwrap();
     dbg!(pending_tx);
+}
+
+#[tokio::test]
+#[ignore = "integration test"]
+pub async fn test_send_single_tx_hoodi() {
+    setup_logging();
+
+    let raw_key = env::var("BUILDER_KEY").expect("BUILDER_KEY must be set");
+    let builder_key = LocalOrAws::load(&raw_key, Some(560048))
+        .await
+        .expect("failed to load builder key");
+
+    let req = TransactionRequest::default()
+        .to(builder_key.address())
+        .value(U256::from(0u64))
+        .gas_limit(21_000)
+        .max_fee_per_gas((50 * GWEI_TO_WEI).into())
+        .max_priority_fee_per_gas((2 * GWEI_TO_WEI).into())
+        .from(builder_key.address());
+
+    let hoodi = ProviderBuilder::new()
+        .wallet(builder_key.clone())
+        .connect_http("https://ethereum-hoodi-rpc.publicnode.com".parse().unwrap());
+
+    let SendableTx::Envelope(tx) = hoodi.fill(req.clone()).await.unwrap() else {
+        panic!("expected filled tx");
+    };
+    dbg!("prepared transaction request", tx.clone());
+    let tx_bytes = tx.encoded_2718();
+
+    let pending_tx = hoodi
+        .send_raw_transaction(&tx_bytes)
+        .await
+        .expect("should send tx")
+        .watch()
+        .await
+        .unwrap();
+    dbg!(pending_tx);
+}
+
+#[tokio::test]
+#[ignore = "integration test"]
+async fn test_send_valid_bundle_hoodi() {
+    setup_logging();
+
+    let raw_key = env::var("BUILDER_KEY").expect("BUILDER_KEY must be set");
+    let builder_key = LocalOrAws::load(&raw_key, Some(560048))
+        .await
+        .expect("failed to load builder key");
+
+    let flashbots = ProviderBuilder::new()
+        .wallet(builder_key.clone())
+        .connect_http("https://boost-relay-hoodi.flashbots.net".parse().unwrap());
+
+    let hoodi = ProviderBuilder::new()
+        .wallet(builder_key.clone())
+        .connect_http("https://ethereum-hoodi-rpc.publicnode.com".parse().unwrap());
+
+    let req = TransactionRequest::default()
+        .to(builder_key.address())
+        .value(U256::from(0u64))
+        .gas_limit(21_000)
+        .max_fee_per_gas((50 * GWEI_TO_WEI).into())
+        .max_priority_fee_per_gas((2 * GWEI_TO_WEI).into())
+        .from(builder_key.address());
+
+    let SendableTx::Envelope(tx) = hoodi.fill(req.clone()).await.unwrap() else {
+        panic!("expected filled tx");
+    };
+    dbg!("prepared transaction request", tx.clone());
+    let tx_bytes = tx.encoded_2718();
+
+    let block = hoodi.get_block(BlockId::latest()).await.unwrap().unwrap();
+    let target_block = block.number() + 1;
+    dbg!("preparing bundle for", target_block);
+
+    // let call_bundle = EthCallBundle {
+    //     txs: vec![tx_bytes.clone().into()],
+    //     block_number: target_block,
+    //     ..Default::default()
+    // };
+
+    // let sim = flashbots
+    //     .call_bundle(call_bundle)
+    //     .with_auth(builder_key.clone());
+    // dbg!(sim.await.unwrap());
+
+    let bundle = EthSendBundle {
+        txs: vec![tx_bytes.clone().into()],
+        block_number: target_block,
+        ..Default::default()
+    };
+    
+    let result = flashbots.send_bundle(bundle).with_auth(builder_key.clone());
+    dbg!(result.await.unwrap());
 }
 
 /// Asserts that a tx was included in Sepolia within `deadline` seconds.
