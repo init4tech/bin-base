@@ -36,7 +36,7 @@ impl FlashbotsConfig {
 }
 
 /// A basic provider for common Flashbots Relay endpoints.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Flashbots {
     /// The base URL for the Flashbots API.
     pub relay_url: url::Url,
