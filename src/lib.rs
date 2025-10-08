@@ -22,10 +22,6 @@ pub mod utils {
     /// slot.
     pub mod calc;
 
-    /// A simple interface to flashbots RPC endpoints.
-    #[cfg(feature = "flashbots")]
-    pub mod flashbots;
-
     /// [`FromEnv`], [`FromEnvVar`] traits and related utilities.
     ///
     /// [`FromEnv`]: from_env::FromEnv
