@@ -18,13 +18,12 @@ macro_rules! install_fmt {
         let fmt = tracing_subscriber::fmt::layer().with_filter($filter);
         $registry.with(fmt).init();
     }};
-    ($registry:ident) => {{
+    ($registry:ident, $filter:ident) => {{
         let json = bool::from_env_var(TRACING_LOG_JSON).unwrap_or(false);
-        let filter = EnvFilter::from_default_env();
         if json {
-            install_fmt!(json @ $registry, filter);
+            install_fmt!(json @ $registry, $filter);
         } else {
-            install_fmt!(log @ $registry, filter);
+            install_fmt!(log @ $registry, $filter);
         }
     }};
 }
@@ -48,14 +47,15 @@ macro_rules! install_fmt {
 /// [`OtelConfig`]: crate::utils::otlp::OtelConfig
 pub fn init_tracing() -> Option<OtelGuard> {
     let registry = tracing_subscriber::registry();
+    let filter = EnvFilter::from_default_env();
 
     if let Some(cfg) = OtelConfig::load() {
-        let guard = cfg.provider();
-        let registry = registry.with(guard.layer());
-        install_fmt!(registry);
+        let (guard, layer) = cfg.into_guard_and_layer();
+        let registry = registry.with(layer);
+        install_fmt!(registry, filter);
         Some(guard)
     } else {
-        install_fmt!(registry);
+        install_fmt!(registry, filter);
         tracing::debug!(
             "No OTEL config found or error while loading otel config, using default tracing"
         );

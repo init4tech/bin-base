@@ -1,19 +1,15 @@
 use crate::utils::from_env::{EnvItemInfo, FromEnv, FromEnvErr, FromEnvVar};
 use opentelemetry::{trace::TracerProvider, KeyValue};
-use opentelemetry_sdk::trace::SdkTracerProvider;
-use opentelemetry_sdk::Resource;
+use opentelemetry_sdk::{trace::SdkTracerProvider, Resource};
 use opentelemetry_semantic_conventions::{
     attribute::{DEPLOYMENT_ENVIRONMENT_NAME, SERVICE_NAME, SERVICE_VERSION},
     SCHEMA_URL,
 };
-use std::time::Duration;
-use tracing::level_filters::LevelFilter;
-use tracing_subscriber::Layer;
+use tracing_subscriber::{EnvFilter, Layer};
 use url::Url;
 
 const OTEL_ENDPOINT: &str = "OTEL_EXPORTER_OTLP_ENDPOINT";
 const OTEL_LEVEL: &str = "OTEL_LEVEL";
-const OTEL_TIMEOUT: &str = "OTEL_TIMEOUT";
 const OTEL_ENVIRONMENT: &str = "OTEL_ENVIRONMENT_NAME";
 
 /// Drop guard for the Otel provider. This will shutdown the provider when
@@ -33,7 +29,7 @@ const OTEL_ENVIRONMENT: &str = "OTEL_ENVIRONMENT_NAME";
 /// # }
 /// ```
 #[derive(Debug)]
-pub struct OtelGuard(SdkTracerProvider, tracing::Level);
+pub struct OtelGuard(SdkTracerProvider, EnvFilter);
 
 impl OtelGuard {
     /// Get a tracer from the provider.
@@ -49,7 +45,7 @@ impl OtelGuard {
         let tracer = self.tracer("tracing-otel-subscriber");
         tracing_opentelemetry::layer()
             .with_tracer(tracer)
-            .with_filter(LevelFilter::from_level(self.1))
+            .with_filter(self.1.clone())
     }
 }
 
@@ -68,7 +64,7 @@ impl Drop for OtelGuard {
 ///   should be some valid URL. If not specified, then [`OtelConfig::load`]
 ///   will return [`None`].
 /// - OTEL_LEVEL - optional. Specifies the minimum [`tracing::Level`] to
-///   export. Defaults to [`tracing::Level::DEBUG`].
+///   export in the [`EnvFilter`] format. Defaults to [`tracing::Level::DEBUG`].
 /// - OTEL_TIMEOUT - optional. Specifies the timeout for the exporter in
 ///   **milliseconds**. Defaults to 1000ms, which is equivalent to 1 second.
 /// - OTEL_ENVIRONMENT_NAME - optional. Value for the `deployment.environment.
@@ -81,10 +77,7 @@ pub struct OtelConfig {
     pub endpoint: Url,
 
     /// Defaults to DEBUG.
-    pub level: tracing::Level,
-
-    /// Defaults to 1 second. Specified in Milliseconds.
-    pub timeout: Duration,
+    pub level: EnvFilter,
 
     /// OTEL convenition `deployment.environment.name`
     pub environment: String,
@@ -103,12 +96,7 @@ impl FromEnv for OtelConfig {
             },
             &EnvItemInfo {
                 var: OTEL_LEVEL,
-                description: "OTLP level to export, defaults to DEBUG. Permissible values are: TRACE, DEBUG, INFO, WARN, ERROR, OFF",
-                optional: true,
-            },
-            &EnvItemInfo {
-                var: OTEL_TIMEOUT,
-                description: "OTLP timeout in milliseconds",
+                description: "OTLP level to export. Follows the RUST_LOG env filter format. e.g. `OTEL_LEVEL=warn,my_crate=info`. Defaults to the value of `RUST_LOG` if not present.",
                 optional: true,
             },
             &EnvItemInfo {
@@ -123,16 +111,22 @@ impl FromEnv for OtelConfig {
         // load endpoint from env. ignore empty values (shortcut return None), parse, and print the error if any using inspect_err
         let endpoint = Url::from_env_var(OTEL_ENDPOINT)?;
 
-        let level = tracing::Level::from_env_var(OTEL_LEVEL).unwrap_or(tracing::Level::DEBUG);
-
-        let timeout = Duration::from_env_var(OTEL_TIMEOUT).unwrap_or(Duration::from_millis(1000));
+        let level = if std::env::var(OTEL_LEVEL)
+            .as_ref()
+            .map(String::len)
+            .unwrap_or_default()
+            > 0
+        {
+            EnvFilter::from_env(OTEL_LEVEL)
+        } else {
+            EnvFilter::from_default_env()
+        };
 
         let environment = String::from_env_var(OTEL_ENVIRONMENT).unwrap_or("unknown".into());
 
         Ok(Self {
             endpoint,
             level,
-            timeout,
             environment,
         })
     }
@@ -184,7 +178,19 @@ impl OtelConfig {
             .with_batch_exporter(exporter)
             .build();
 
-        OtelGuard(provider, self.level)
+        OtelGuard(provider, self.level.clone())
+    }
+
+    /// Create a new Otel provider, returning both the guard and a tracing
+    /// layer that can be added to a subscriber.
+    ///
+    pub fn into_guard_and_layer<S>(self) -> (OtelGuard, impl Layer<S>)
+    where
+        S: tracing::Subscriber + for<'span> tracing_subscriber::registry::LookupSpan<'span>,
+    {
+        let guard = self.provider();
+        let layer = guard.layer();
+        (guard, layer)
     }
 }
 
@@ -197,7 +203,6 @@ mod test {
     fn clear_env() {
         std::env::remove_var(OTEL_ENDPOINT);
         std::env::remove_var(OTEL_LEVEL);
-        std::env::remove_var(OTEL_TIMEOUT);
         std::env::remove_var(OTEL_ENVIRONMENT);
     }
 
@@ -215,11 +220,14 @@ mod test {
     fn test_env_read() {
         run_clear_env(|| {
             std::env::set_var(OTEL_ENDPOINT, URL);
+            std::env::set_var(OTEL_LEVEL, "debug");
 
             let cfg = OtelConfig::load().unwrap();
             assert_eq!(cfg.endpoint, URL.parse().unwrap());
-            assert_eq!(cfg.level, tracing::Level::DEBUG);
-            assert_eq!(cfg.timeout, std::time::Duration::from_millis(1000));
+            assert_eq!(
+                cfg.level.max_level_hint(),
+                Some(tracing::Level::DEBUG.into())
+            );
             assert_eq!(cfg.environment, "unknown");
         })
     }
@@ -229,22 +237,13 @@ mod test {
     fn test_env_read_level() {
         run_clear_env(|| {
             std::env::set_var(OTEL_ENDPOINT, URL);
-            std::env::set_var(OTEL_LEVEL, "WARN");
+            std::env::set_var(OTEL_LEVEL, "warn,my_app=info");
 
             let cfg = OtelConfig::load().unwrap();
-            assert_eq!(cfg.level, tracing::Level::WARN);
-        })
-    }
-
-    #[test]
-    #[serial_test::serial]
-    fn test_env_read_timeout() {
-        run_clear_env(|| {
-            std::env::set_var(OTEL_ENDPOINT, URL);
-            std::env::set_var(OTEL_TIMEOUT, "500");
-
-            let cfg = OtelConfig::load().unwrap();
-            assert_eq!(cfg.timeout, std::time::Duration::from_millis(500));
+            let s = cfg.level.to_string();
+            let iter = s.split(",");
+            assert!(iter.clone().any(|x| x == "warn"));
+            assert!(iter.clone().any(|x| x == "my_app=info"));
         })
     }
 
