@@ -5,6 +5,7 @@ use crate::utils::{
 use tracing_subscriber::{filter::EnvFilter, layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
 const TRACING_LOG_JSON: &str = "TRACING_LOG_JSON";
+const RUST_OTEL_TRACE: &str = "RUST_OTEL_TRACE";
 
 /// Install a format layer based on the `TRACING_LOG_JSON` environment
 /// variable, and then install the registr
@@ -18,13 +19,12 @@ macro_rules! install_fmt {
         let fmt = tracing_subscriber::fmt::layer().with_filter($filter);
         $registry.with(fmt).init();
     }};
-    ($registry:ident) => {{
+    ($registry:ident, $filter:ident) => {{
         let json = bool::from_env_var(TRACING_LOG_JSON).unwrap_or(false);
-        let filter = EnvFilter::from_default_env();
         if json {
-            install_fmt!(json @ $registry, filter);
+            install_fmt!(json @ $registry, $filter);
         } else {
-            install_fmt!(log @ $registry, filter);
+            install_fmt!(log @ $registry, $filter);
         }
     }};
 }
@@ -48,14 +48,27 @@ macro_rules! install_fmt {
 /// [`OtelConfig`]: crate::utils::otlp::OtelConfig
 pub fn init_tracing() -> Option<OtelGuard> {
     let registry = tracing_subscriber::registry();
+    let filter = EnvFilter::from_default_env();
+
+    // load otel from env, if the var is present, otherwise just use fmt
+    let otel_filter = if std::env::var(RUST_OTEL_TRACE)
+        .as_ref()
+        .map(String::len)
+        .unwrap_or_default()
+        > 0
+    {
+        EnvFilter::from_env(RUST_OTEL_TRACE)
+    } else {
+        filter.clone()
+    };
 
     if let Some(cfg) = OtelConfig::load() {
         let guard = cfg.provider();
-        let registry = registry.with(guard.layer());
-        install_fmt!(registry);
+        let registry = registry.with(guard.layer().with_filter(otel_filter));
+        install_fmt!(registry, filter);
         Some(guard)
     } else {
-        install_fmt!(registry);
+        install_fmt!(registry, filter);
         tracing::debug!(
             "No OTEL config found or error while loading otel config, using default tracing"
         );
