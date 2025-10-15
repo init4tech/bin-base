@@ -180,6 +180,18 @@ impl OtelConfig {
 
         OtelGuard(provider, self.level.clone())
     }
+
+    /// Create a new Otel provider, returning both the guard and a tracing
+    /// layer that can be added to a subscriber.
+    ///
+    pub fn into_guard_and_layer<S>(self) -> (OtelGuard, impl Layer<S>)
+    where
+        S: tracing::Subscriber + for<'span> tracing_subscriber::registry::LookupSpan<'span>,
+    {
+        let guard = self.provider();
+        let layer = guard.layer();
+        (guard, layer)
+    }
 }
 
 #[cfg(test)]

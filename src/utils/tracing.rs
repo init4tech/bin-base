@@ -50,8 +50,8 @@ pub fn init_tracing() -> Option<OtelGuard> {
     let filter = EnvFilter::from_default_env();
 
     if let Some(cfg) = OtelConfig::load() {
-        let guard = cfg.provider();
-        let registry = registry.with(guard.layer());
+        let (guard, layer) = cfg.into_guard_and_layer();
+        let registry = registry.with(layer);
         install_fmt!(registry, filter);
         Some(guard)
     } else {
