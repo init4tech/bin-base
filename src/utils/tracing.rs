@@ -5,7 +5,6 @@ use crate::utils::{
 use tracing_subscriber::{filter::EnvFilter, layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
 const TRACING_LOG_JSON: &str = "TRACING_LOG_JSON";
-const RUST_OTEL_TRACE: &str = "RUST_OTEL_TRACE";
 
 /// Install a format layer based on the `TRACING_LOG_JSON` environment
 /// variable, and then install the registr
@@ -50,21 +49,9 @@ pub fn init_tracing() -> Option<OtelGuard> {
     let registry = tracing_subscriber::registry();
     let filter = EnvFilter::from_default_env();
 
-    // load otel from env, if the var is present, otherwise just use fmt
-    let otel_filter = if std::env::var(RUST_OTEL_TRACE)
-        .as_ref()
-        .map(String::len)
-        .unwrap_or_default()
-        > 0
-    {
-        EnvFilter::from_env(RUST_OTEL_TRACE)
-    } else {
-        filter.clone()
-    };
-
     if let Some(cfg) = OtelConfig::load() {
         let guard = cfg.provider();
-        let registry = registry.with(guard.layer().with_filter(otel_filter));
+        let registry = registry.with(guard.layer());
         install_fmt!(registry, filter);
         Some(guard)
     } else {
