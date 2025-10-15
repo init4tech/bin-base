@@ -61,7 +61,7 @@ reqwest = { version = "0.12.15", optional = true }
 rustls = { version = "0.23.31", optional = true }
 
 [dev-dependencies]
-ajj = { path = "../ajj", features = ["axum", "ws", "ipc"] }
+ajj = { version = "0.4.1", features = ["axum", "ws", "ipc"] }
 axum = "0.8.1"
 eyre = "0.6.12"
 serial_test = "3.2.0"
