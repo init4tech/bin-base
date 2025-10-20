@@ -24,6 +24,9 @@ use tower::{Layer, Service};
 use tracing::info;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
+const ATTEMPTS: &str = "init4.perms.attempts";
+const ATTEMPTS_DESCR: &str = "Counts the number of builder permissioning attempts";
+
 const MISSING_HEADER: &str = "init4.perms.missing_header";
 const MISSING_HEADER_DESCR: &str =
     "Counts the number of requests missing the authentication header";
@@ -36,6 +39,7 @@ const SUCCESS: &str = "init4.perms.success";
 const SUCCESS_DESCR: &str = "Counts the number of auths allowed due to builder permissioning";
 
 static DESCRIBE: LazyLock<()> = LazyLock::new(|| {
+    describe_counter!(ATTEMPTS, ATTEMPTS_DESCR);
     describe_counter!(MISSING_HEADER, MISSING_HEADER_DESCR);
     describe_counter!(PERMISSION_DENIED, PERMISSION_DENIED_DESCR);
     describe_counter!(SUCCESS, SUCCESS_DESCR);
@@ -198,6 +202,8 @@ where
             );
 
             let guard = span.enter();
+
+            counter!(ATTEMPTS).increment(1);
 
             // Check if the sub is in the header.
             let sub = match validate_header_sub(req.headers().get("x-jwt-claim-sub")) {
