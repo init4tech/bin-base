@@ -11,10 +11,39 @@ use axum::{
     Json,
 };
 use core::fmt;
+use metrics::{counter, describe_counter};
+use opentelemetry::trace::Status;
 use serde::Serialize;
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{
+    borrow::Cow,
+    future::Future,
+    pin::Pin,
+    sync::{Arc, LazyLock},
+};
 use tower::{Layer, Service};
 use tracing::info;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+const ATTEMPTS: &str = "init4.perms.attempts";
+const ATTEMPTS_DESCR: &str = "Counts the number of builder permissioning attempts";
+
+const MISSING_HEADER: &str = "init4.perms.missing_header";
+const MISSING_HEADER_DESCR: &str =
+    "Counts the number of requests missing the authentication header";
+
+const PERMISSION_DENIED: &str = "init4.perms.permission_denied";
+const PERMISSION_DENIED_DESCR: &str =
+    "Counts the number of requests denied due to builder permissioning";
+
+const SUCCESS: &str = "init4.perms.success";
+const SUCCESS_DESCR: &str = "Counts the number of auths allowed due to builder permissioning";
+
+static DESCRIBE: LazyLock<()> = LazyLock::new(|| {
+    describe_counter!(ATTEMPTS, ATTEMPTS_DESCR);
+    describe_counter!(MISSING_HEADER, MISSING_HEADER_DESCR);
+    describe_counter!(PERMISSION_DENIED, PERMISSION_DENIED_DESCR);
+    describe_counter!(SUCCESS, SUCCESS_DESCR);
+});
 
 /// Possible API error responses when a builder permissioning check fails.
 #[derive(Serialize)]
@@ -155,6 +184,8 @@ where
     fn call(&mut self, req: Request) -> Self::Future {
         let mut this = self.clone();
 
+        LazyLock::force(&DESCRIBE);
+
         Box::pin(async move {
             let span = tracing::info_span!(
                 "builder::permissioning",
@@ -167,19 +198,22 @@ where
                     .calc()
                     .current_point_within_slot()
                     .expect("host chain has started"),
-                permissioning_error = tracing::field::Empty,
+                otel.status_code = tracing::field::Empty
             );
 
             let guard = span.enter();
 
-            info!("builder permissioning check started");
+            counter!(ATTEMPTS).increment(1);
 
             // Check if the sub is in the header.
             let sub = match validate_header_sub(req.headers().get("x-jwt-claim-sub")) {
                 Ok(sub) => sub,
                 Err(err) => {
-                    span.record("permissioning_error", err.1.message);
+                    span.set_status(Status::Error {
+                        description: Cow::Owned(err.1.message.to_string()),
+                    });
                     info!(api_err = %err.1.message, "permission denied");
+                    counter!("init4.perms.missing_header").increment(1);
                     return Ok(err.into_response());
                 }
             };
@@ -187,17 +221,21 @@ where
             span.record("requesting_builder", sub);
 
             if let Err(err) = this.builders.is_builder_permissioned(sub) {
-                span.record("permissioning_error", err.to_string());
-                info!(api_err = %err, "permission denied");
+                span.set_status(Status::Error {
+                    description: Cow::Owned(err.to_string()),
+                });
 
                 let hint = builder_permissioning_hint(&err);
+
+                counter!("init4.perms.permission_denied", "builder" => sub.to_string())
+                    .increment(1);
 
                 return Ok(ApiError::permission_denied(hint).into_response());
             }
 
-            info!("builder permissioned successfully");
-
             drop(guard);
+            info!("builder permissioned successfully");
+            counter!(SUCCESS, "builder" => sub.to_string()).increment(1);
 
             this.inner.call(req).await
         })
