@@ -4,7 +4,7 @@ name = "init4-bin-base"
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
 
-version = "0.15.0"
+version = "0.15.1"
 edition = "2021"
 rust-version = "1.85"
 authors = ["init4", "James Prestwich", "evalir"]
@@ -30,6 +30,7 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json", "re
 # OTLP
 opentelemetry_sdk = "0.30.0"
 opentelemetry = "0.30.0"
+opentelemetry-http = "0.30.0"
 opentelemetry-otlp = "0.30.0"
 opentelemetry-semantic-conventions = { version = "0.30.0", features = ["semconv_experimental"] }
 tracing-opentelemetry = "0.31.0"
@@ -47,12 +48,12 @@ oauth2 = { version = "5.0.0", optional = true }
 tokio = { version = "1.36.0", optional = true }
 
 # Other
-thiserror = "2.0.11"
+axum = "0.8.1"
 serde = { version = "1", features = ["derive"] }
+thiserror = "2.0.11"
+tower = "0.5.2"
 async-trait = { version = "0.1.80", optional = true }
 eyre = { version = "0.6.12", optional = true }
-axum = { version = "0.8.1", optional = true }
-tower = { version = "0.5.2", optional = true }
 
 # AWS
 aws-config = { version = "1.1.7", optional = true }
@@ -72,7 +73,7 @@ tokio = { version = "1.43.0", features = ["macros"] }
 default = ["alloy", "rustls"]
 alloy = ["dep:alloy"]
 aws = ["alloy", "alloy?/signer-aws", "dep:async-trait", "dep:aws-config", "dep:aws-sdk-kms"]
-perms = ["dep:oauth2", "dep:tokio", "dep:reqwest", "dep:signet-tx-cache", "dep:eyre", "dep:axum", "dep:tower"]
+perms = ["dep:oauth2", "dep:tokio", "dep:reqwest", "dep:signet-tx-cache", "dep:eyre"]
 rustls = ["dep:rustls", "rustls/aws-lc-rs"]
 
 [[example]]
