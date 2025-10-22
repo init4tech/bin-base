@@ -31,6 +31,9 @@ pub mod utils {
     /// Prometheus metrics utilities.
     pub mod metrics;
 
+    /// Axum OpenTelemetry utilities.
+    pub mod otel_axum;
+
     /// OpenTelemetry utilities.
     pub mod otlp;
 
