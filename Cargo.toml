@@ -3,8 +3,7 @@ name = "init4-bin-base"
 
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
-
-version = "0.15.1"
+version = "0.16.0"
 edition = "2021"
 rust-version = "1.85"
 authors = ["init4", "James Prestwich", "evalir"]
