@@ -66,12 +66,52 @@ impl BuilderTxCache {
             .map_err(Into::into)
     }
 
+    async fn get_inner_with_query_and_token<T>(
+        &self,
+        join: &'static str,
+        query: PaginationParams,
+    ) -> Result<T, Error>
+    where
+        T: DeserializeOwned,
+    {
+        // Append the path to the URL.
+        let secret = self.token.secret().await?;
+        let url = self
+            .url
+            .join(join)
+            .inspect_err(|e| warn!(%e, "Failed to join URL. Not querying transaction cache."))?;
+
+        let mut request = self.client.get(url);
+
+        if let Some(cursor) = query.cursor() {
+            request = request.query(&[("cursor", cursor)]);
+        }
+        if let Some(limit) = query.limit() {
+            request = request.query(&[("limit", limit)]);
+        }
+
+        request
+            .bearer_auth(secret)
+            .send()
+            .await
+            .inspect_err(|e| warn!(%e, "Failed to get object from transaction cache."))?
+            .json::<T>()
+            .await
+            .map_err(Into::into)
+    }
+
     /// Get bundles from the cache.
     #[instrument(skip_all)]
-    pub async fn get_bundles(&self) -> Result<Vec<TxCacheBundle>> {
-        self.get_inner_with_token::<TxCacheBundlesResponse>(BUNDLES)
-            .await
-            .map(|response| response.bundles)
+    pub async fn get_bundles(&self, query: Option<PaginationParams>) -> Result<Vec<TxCacheBundle>> {
+        if let Some(query) = query {
+            self.get_inner_with_query_and_token::<TxCacheBundlesResponse>(BUNDLES, query)
+                .await
+                .map(|response| response.bundles)
+        } else {
+            self.get_inner_with_token::<TxCacheBundlesResponse>(BUNDLES)
+                .await
+                .map(|response| response.bundles)
+        }
     }
 
     fn get_bundle_url_path(&self, bundle_id: &str) -> String {
