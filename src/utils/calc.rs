@@ -234,6 +234,17 @@ impl SlotCalculator {
         self.point_within_slot(chrono::Utc::now().timestamp() as u64)
     }
 
+    /// The current number of milliseconds into the slot.
+    pub fn current_point_within_slot_ms(&self) -> Option<u64> {
+        let now = chrono::Utc::now();
+        let timestamp = now.timestamp() as u64;
+        let millis = now.timestamp_subsec_millis() as u64;
+
+        self.point_within_slot(timestamp).map(|point| {
+            std::time::Duration::from_secs(point).as_millis() as u64 + millis
+        })
+    }
+
     /// Calculates the slot that starts at the given timestamp.
     /// Returns `None` if the timestamp is not a slot boundary.
     /// Returns `None` if the timestamp is before the chain's start timestamp.
