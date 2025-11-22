@@ -240,9 +240,8 @@ impl SlotCalculator {
         let timestamp = now.timestamp() as u64;
         let millis = now.timestamp_subsec_millis() as u64;
 
-        self.point_within_slot(timestamp).map(|point| {
-            std::time::Duration::from_secs(point).as_millis() as u64 + millis
-        })
+        self.point_within_slot(timestamp)
+            .map(|point| std::time::Duration::from_secs(point).as_millis() as u64 + millis)
     }
 
     /// Calculates the slot that starts at the given timestamp.
