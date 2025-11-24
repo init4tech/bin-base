@@ -16,7 +16,7 @@ init4-from-env-derive =  "0.1.0"
 
 # Signet
 signet-constants = { version = "0.14" }
-signet-tx-cache = { version = "0.14", optional = true }
+signet-tx-cache = { version = "0.15", optional = true }
 
 # alloy
 alloy = { version = "1.0.35", optional = true, default-features = false, features = ["std", "signer-local", "consensus", "network"] }
