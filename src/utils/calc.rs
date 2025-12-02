@@ -312,6 +312,7 @@ impl From<KnownChains> for SlotCalculator {
         match value {
             KnownChains::Pecorino => SlotCalculator::pecorino_host(),
             KnownChains::Test => SlotCalculator::new(12, 0, 12),
+            KnownChains::Mainnet => SlotCalculator::mainnet(),
         }
     }
 }
