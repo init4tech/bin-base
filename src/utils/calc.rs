@@ -243,10 +243,10 @@ impl SlotCalculator {
         // NB: Only fetch from now() object once and reuse
         let timestamp_ms = chrono::Utc::now().timestamp_millis() as u64;
         let timestamp_s = timestamp_ms / 1000;
-        let remainder = timestamp_ms - timestamp_s;
+        let fractional = timestamp_ms % 1000;
 
         self.point_within_slot(timestamp_s)
-            .map(|point| std::time::Duration::from_secs(point).as_millis() as u64 + remainder)
+            .map(|point| point * 1000 + fractional)
     }
 
     /// Calculates the slot that starts at the given timestamp.
