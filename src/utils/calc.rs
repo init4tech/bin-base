@@ -71,7 +71,7 @@ pub struct SlotCalculator {
 }
 
 impl SlotCalculator {
-    /// Creates a new slot calculator.
+    /// Create a new slot calculator.
     pub const fn new(start_timestamp: u64, slot_offset: usize, slot_duration: u64) -> Self {
         Self {
             start_timestamp,
@@ -80,7 +80,7 @@ impl SlotCalculator {
         }
     }
 
-    /// Creates a new slot calculator for Holesky.
+    /// Create a new slot calculator for Holesky.
     pub const fn holesky() -> Self {
         // begin slot calculation for Holesky from block number 1, slot number 2, timestamp 1695902424
         // because of a strange 324 second gap between block 0 and 1 which
@@ -92,7 +92,16 @@ impl SlotCalculator {
         }
     }
 
-    /// Creates a new slot calculator for Pecorino host network.
+    /// Create a new slot calculator for Parmigiana host network.
+    pub const fn parmigiana_host() -> Self {
+        Self {
+            start_timestamp: 1765226348,
+            slot_offset: 0,
+            slot_duration: 12,
+        }
+    }
+
+    /// Create a new slot calculator for Pecorino host network.
     pub const fn pecorino_host() -> Self {
         Self {
             start_timestamp: 1754584265,
@@ -101,7 +110,7 @@ impl SlotCalculator {
         }
     }
 
-    /// Creates a new slot calculator for Ethereum mainnet.
+    /// Create a new slot calculator for Ethereum mainnet.
     pub const fn mainnet() -> Self {
         Self {
             start_timestamp: 1663224179,
@@ -325,9 +334,11 @@ impl FromEnv for SlotCalculator {
 impl From<KnownChains> for SlotCalculator {
     fn from(value: KnownChains) -> Self {
         match value {
+            KnownChains::Mainnet => SlotCalculator::mainnet(),
+            KnownChains::Parmigiana => SlotCalculator::parmigiana_host(),
+            #[allow(deprecated)]
             KnownChains::Pecorino => SlotCalculator::pecorino_host(),
             KnownChains::Test => SlotCalculator::new(12, 0, 12),
-            KnownChains::Mainnet => SlotCalculator::mainnet(),
         }
     }
 }

@@ -3,7 +3,7 @@ name = "init4-bin-base"
 
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
-version = "0.18.1-rc.0"
+version = "0.18.0-rc.1"
 edition = "2021"
 rust-version = "1.85"
 authors = ["init4", "James Prestwich", "evalir"]
@@ -15,8 +15,8 @@ repository = "https://github.com/init4tech/bin-base"
 init4-from-env-derive =  "0.1.0"
 
 # Signet
-signet-constants = { version = "0.16.0-rc.0" }
-signet-tx-cache = { version = "0.16.0-rc.0", optional = true }
+signet-constants = { version = "0.16.0-rc.1" }
+signet-tx-cache = { version = "0.16.0-rc.1", optional = true }
 
 # alloy
 alloy = { version = "1.0.35", optional = true, default-features = false, features = ["std", "signer-local", "consensus", "network"] }
