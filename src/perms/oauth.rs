@@ -11,10 +11,12 @@ use oauth2::{
     EndpointSet, HttpClientError, RefreshToken, RequestTokenError, Scope, StandardErrorResponse,
     StandardTokenResponse, TokenResponse, TokenUrl,
 };
+use std::{future::IntoFuture, pin::Pin};
 use tokio::{
     sync::watch::{self, Ref},
     task::JoinHandle,
 };
+use tracing::Instrument;
 
 type Token = StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>;
 
@@ -63,7 +65,14 @@ impl OAuthConfig {
 
 /// A self-refreshing, periodically fetching authenticator for the block
 /// builder. This task periodically fetches a new token, and sends it to all
-/// active [`SharedToken`]s via a [`tokio::sync::watch`] channel..
+/// active [`SharedToken`]s via a [`tokio::sync::watch`] channel.
+///
+/// This task can be spawned using the [`Authenticator::spawn`] method, which
+/// will create a new tokio task that runs the refresh loop in the background,
+/// in the current [`tracing`] span. Alternately, the [`IntoFuture`]
+/// implementation can be used to create a future that runs the refresh loop,
+/// and can be isntrumented with the [`Instrument`] trait, and then spawned or
+/// awaited as desired.
 #[derive(Debug)]
 pub struct Authenticator {
     /// Configuration
@@ -173,7 +182,17 @@ impl Authenticator {
     /// interval may be configured via the
     /// [`OAuthConfig::oauth_token_refresh_interval`] property.
     pub fn spawn(self) -> JoinHandle<()> {
-        tokio::spawn(self.task_future())
+        tokio::spawn(self.task_future().in_current_span())
+    }
+}
+
+impl IntoFuture for Authenticator {
+    type Output = ();
+
+    type IntoFuture = Pin<Box<dyn std::future::Future<Output = ()> + Send>>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        Box::pin(self.task_future())
     }
 }
 
