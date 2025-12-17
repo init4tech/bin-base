@@ -11,7 +11,7 @@ const TRACING_LOG_JSON: &str = "TRACING_LOG_JSON";
 ///
 macro_rules! install_fmt {
     (json @ $registry:ident, $filter:ident) => {{
-        let fmt = tracing_subscriber::fmt::layer().json().with_filter($filter);
+        let fmt = tracing_subscriber::fmt::layer().json().with_span_list(true).with_filter($filter);
         $registry.with(fmt).init();
     }};
     (log @ $registry:ident, $filter:ident) => {{
