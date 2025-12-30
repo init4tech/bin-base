@@ -3,7 +3,7 @@ name = "init4-bin-base"
 
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
-version = "0.18.0-rc.2"
+version = "0.18.0-rc.3"
 edition = "2021"
 rust-version = "1.85"
 authors = ["init4", "James Prestwich", "evalir"]
@@ -15,8 +15,8 @@ repository = "https://github.com/init4tech/bin-base"
 init4-from-env-derive =  "0.1.0"
 
 # Signet
-signet-constants = { version = "0.16.0-rc.1" }
-signet-tx-cache = { version = "0.16.0-rc.1", optional = true }
+signet-constants = { version = "0.16.0-rc.4" }
+signet-tx-cache = { version = "0.16.0-rc.4", optional = true }
 
 # alloy
 alloy = { version = "1.0.35", optional = true, default-features = false, features = ["std", "signer-local", "consensus", "network"] }
@@ -52,7 +52,6 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "2.0.11"
 tower = "0.5.2"
 async-trait = { version = "0.1.80", optional = true }
-eyre = { version = "0.6.12", optional = true }
 
 # AWS
 aws-config = { version = "1.1.7", optional = true }
@@ -72,7 +71,7 @@ tokio = { version = "1.43.0", features = ["macros"] }
 default = ["alloy", "rustls"]
 alloy = ["dep:alloy"]
 aws = ["alloy", "alloy?/signer-aws", "dep:async-trait", "dep:aws-config", "dep:aws-sdk-kms"]
-perms = ["dep:oauth2", "dep:tokio", "dep:reqwest", "dep:signet-tx-cache", "dep:eyre"]
+perms = ["dep:oauth2", "dep:tokio", "dep:reqwest", "dep:signet-tx-cache"]
 rustls = ["dep:rustls", "rustls/aws-lc-rs"]
 
 [[example]]

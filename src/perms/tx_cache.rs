@@ -1,9 +1,9 @@
 use crate::perms::oauth::SharedToken;
-use eyre::Result;
 use serde::de::DeserializeOwned;
 use signet_tx_cache::{
-    client::TxCache,
+    error::Result,
     types::{TxCacheBundle, TxCacheBundleResponse, TxCacheBundlesResponse},
+    TxCache,
 };
 use tracing::{instrument, warn};
 
@@ -52,7 +52,10 @@ impl BuilderTxCache {
 
     async fn get_inner_with_token<T: DeserializeOwned>(&self, join: &str) -> Result<T> {
         let url = self.tx_cache.url().join(join)?;
-        let secret = self.token.secret().await?;
+        let secret = self.token.secret().await.unwrap_or_else(|_| {
+            warn!("Failed to get token secret");
+            "".to_string()
+        });
 
         self.tx_cache
             .client()
