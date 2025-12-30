@@ -1,10 +1,7 @@
 //! Service responsible for authenticating with the cache with Oauth tokens.
 //! This authenticator periodically fetches a new token every set amount of seconds.
-use crate::{
-    deps::tracing::{error, info},
-    utils::from_env::FromEnv,
-};
-use core::fmt;
+use crate::{deps::tracing::error, utils::from_env::FromEnv};
+use core::{error::Error, fmt};
 use oauth2::{
     basic::{BasicClient, BasicTokenType},
     AccessToken, AuthUrl, ClientId, ClientSecret, EmptyExtraTokenFields, EndpointNotSet,
@@ -16,7 +13,7 @@ use tokio::{
     sync::watch::{self, Ref},
     task::JoinHandle,
 };
-use tracing::Instrument;
+use tracing::{debug, Instrument};
 
 type Token = StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>;
 
@@ -165,13 +162,14 @@ impl Authenticator {
         let interval = self.config.oauth_token_refresh_interval;
 
         loop {
-            info!("Refreshing oauth token");
+            debug!("Refreshing oauth token");
             match self.authenticate().await {
                 Ok(_) => {
-                    info!("Successfully refreshed oauth token");
+                    debug!("Successfully refreshed oauth token");
                 }
-                Err(e) => {
-                    error!(%e, "Failed to refresh oauth token");
+                Err(err) => {
+                    let err_source = err.source().map(|e| e.to_string());
+                    error!(%err, err_source, "Failed to refresh oauth token");
                 }
             };
             let _sleep = tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
