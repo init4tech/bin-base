@@ -289,6 +289,14 @@ impl SharedToken {
     }
 }
 
+#[doc(hidden)]
+impl SharedToken {
+    /// Create an empty `SharedToken` that will never be authenticated.
+    pub fn empty() -> Self {
+        Self(watch::channel(None).1)
+    }
+}
+
 /// A reference to token data, contained in a [`SharedToken`].
 ///
 /// This is implemented using [`watch::Ref`], and as a result holds a lock on

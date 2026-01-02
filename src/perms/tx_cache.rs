@@ -2,7 +2,7 @@ use crate::perms::oauth::SharedToken;
 use serde::de::DeserializeOwned;
 use signet_tx_cache::{
     error::Result,
-    types::{TxCacheBundle, TxCacheBundleResponse, TxCacheBundlesResponse},
+    types::{CacheObject, TxCacheBundle, TxCacheBundleResponse, TxCacheBundlesResponse},
     TxCache,
 };
 use tracing::{instrument, warn};
@@ -35,13 +35,35 @@ impl std::ops::DerefMut for BuilderTxCache {
 }
 
 impl BuilderTxCache {
-    /// Create a new `TxCacheClient` with the given transaction cache and shared token.
-    pub const fn new(tx_cache: TxCache, token: SharedToken) -> Self {
-        Self { tx_cache, token }
+    /// Instantiate with the given transaction cache and shared token.
+    pub fn new(url: reqwest::Url, token: SharedToken) -> Self {
+        Self {
+            tx_cache: TxCache::new(url),
+            token,
+        }
+    }
+
+    /// Instantiate from a string URL and shared token.
+    pub fn new_from_string(url: &str, token: SharedToken) -> Result<Self> {
+        let tx_cache = TxCache::new_from_string(url)?;
+        Ok(Self { tx_cache, token })
+    }
+
+    /// Instantiate with the given transaction cache and shared token, using
+    /// a specific reqwest client.
+    pub const fn new_with_client(
+        url: reqwest::Url,
+        client: reqwest::Client,
+        token: SharedToken,
+    ) -> Self {
+        Self {
+            tx_cache: TxCache::new_with_client(url, client),
+            token,
+        }
     }
 
     /// Get a reference to the transaction cache client.
-    pub const fn tx_cache(&self) -> &TxCache {
+    pub const fn inner(&self) -> &TxCache {
         &self.tx_cache
     }
 
@@ -50,7 +72,10 @@ impl BuilderTxCache {
         &self.token
     }
 
-    async fn get_inner_with_token<T: DeserializeOwned>(&self, join: &str) -> Result<T> {
+    async fn get_inner_with_token<T>(&self, join: &str, query: Option<T::Key>) -> Result<T>
+    where
+        T: DeserializeOwned + CacheObject,
+    {
         let url = self.tx_cache.url().join(join)?;
         let secret = self.token.secret().await.unwrap_or_else(|_| {
             warn!("Failed to get token secret");
@@ -60,10 +85,11 @@ impl BuilderTxCache {
         self.tx_cache
             .client()
             .get(url)
+            .query(&query)
             .bearer_auth(secret)
             .send()
-            .await
-            .inspect_err(|e| warn!(%e, "Failed to get object from transaction cache"))?
+            .await?
+            .error_for_status()?
             .json::<T>()
             .await
             .map_err(Into::into)
@@ -72,7 +98,7 @@ impl BuilderTxCache {
     /// Get bundles from the cache.
     #[instrument(skip_all)]
     pub async fn get_bundles(&self) -> Result<Vec<TxCacheBundle>> {
-        self.get_inner_with_token::<TxCacheBundlesResponse>(BUNDLES)
+        self.get_inner_with_token::<TxCacheBundlesResponse>(BUNDLES, None)
             .await
             .map(|response| response.bundles)
     }
@@ -86,7 +112,7 @@ impl BuilderTxCache {
     #[instrument(skip_all)]
     pub async fn get_bundle(&self, bundle_id: &str) -> Result<TxCacheBundle> {
         let url = self.get_bundle_url_path(bundle_id);
-        self.get_inner_with_token::<TxCacheBundleResponse>(&url)
+        self.get_inner_with_token::<TxCacheBundleResponse>(&url, None)
             .await
             .map(|response| response.bundle)
     }
