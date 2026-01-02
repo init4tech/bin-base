@@ -168,8 +168,19 @@ impl Authenticator {
                     debug!("Successfully refreshed oauth token");
                 }
                 Err(err) => {
-                    let err_source = err.source().map(|e| e.to_string());
-                    error!(%err, err_source, "Failed to refresh oauth token");
+                    let mut current = &err as &dyn Error;
+
+                    // This is a little hacky, but the oauth library nests
+                    // errors quite deeply, so we need to walk the source chain
+                    // to get the full picture.
+                    let mut source_chain = Vec::new();
+                    while let Some(source) = current.source() {
+                        source_chain.push(source.to_string());
+                        current = source;
+                    }
+                    let source_chain = source_chain.join("\n\n Caused by: \n");
+
+                    error!(%err, %source_chain, "Failed to refresh oauth token");
                 }
             };
             let _sleep = tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
