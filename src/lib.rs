@@ -47,6 +47,10 @@ pub mod utils {
 
     /// Tracing utilities.
     pub mod tracing;
+
+    /// Block watcher utilities.
+    #[cfg(feature = "block_watcher")]
+    pub mod block_watcher;
 }
 
 /// Re-exports of common dependencies.

@@ -45,6 +45,7 @@ chrono = "0.4.40"
 # OAuth
 oauth2 = { version = "5.0.0", optional = true }
 tokio = { version = "1.36.0", optional = true }
+tokio-stream = { version = "0.1", optional = true }
 
 # Other
 axum = "0.8.1"
@@ -72,6 +73,7 @@ default = ["alloy", "rustls"]
 alloy = ["dep:alloy"]
 aws = ["alloy", "alloy?/signer-aws", "dep:async-trait", "dep:aws-config", "dep:aws-sdk-kms"]
 perms = ["dep:oauth2", "dep:tokio", "dep:reqwest", "dep:signet-tx-cache"]
+block_watcher = ["dep:tokio", "dep:tokio-stream"]
 rustls = ["dep:rustls", "rustls/aws-lc-rs"]
 
 [[example]]
