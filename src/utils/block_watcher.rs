@@ -54,8 +54,8 @@ impl BlockWatcher {
     }
 
     /// Subscribe to block number updates.
-    pub fn subscribe(&self) -> watch::Receiver<u64> {
-        self.block_number.subscribe()
+    pub fn subscribe(&self) -> SharedBlockNumber {
+        self.block_number.subscribe().into()
     }
 
     /// Spawns the block watcher task.
@@ -80,5 +80,43 @@ impl BlockWatcher {
             self.block_number.send_replace(block_number);
             trace!(block_number, "updated host block number");
         }
+    }
+}
+
+/// A shared block number, wrapped in a [`tokio::sync::watch`] Receiver.
+///
+/// The block number is periodically updated by a [`BlockWatcher`] task, and
+/// can be read or awaited for changes. This allows multiple tasks to observe
+/// block number updates.
+#[derive(Debug, Clone)]
+pub struct SharedBlockNumber(watch::Receiver<u64>);
+
+impl From<watch::Receiver<u64>> for SharedBlockNumber {
+    fn from(inner: watch::Receiver<u64>) -> Self {
+        Self(inner)
+    }
+}
+
+impl SharedBlockNumber {
+    /// Get the current block number.
+    pub fn get(&self) -> u64 {
+        *self.0.borrow()
+    }
+
+    /// Wait for the block number to change, then return the new value.
+    ///
+    /// This is implemented using [`Receiver::changed`].
+    ///
+    /// [`Receiver::changed`]: tokio::sync::watch::Receiver::changed
+    pub async fn changed(&mut self) -> Result<u64, watch::error::RecvError> {
+        self.0.changed().await?;
+        Ok(*self.0.borrow_and_update())
+    }
+
+    /// Wait for the block number to reach at least `target`.
+    ///
+    /// Returns the block number once it is >= `target`.
+    pub async fn wait_until(&mut self, target: u64) -> Result<u64, watch::error::RecvError> {
+        self.0.wait_for(|&n| n >= target).await.map(|r| *r)
     }
 }
