@@ -6,9 +6,11 @@ use alloy::{
     providers::{Provider, RootProvider},
     transports::TransportError,
 };
-use tokio::{sync::watch, task::JoinHandle};
-use tokio_stream::StreamExt;
-use tracing::{debug, error, trace};
+use tokio::{
+    sync::{broadcast::error::RecvError, watch},
+    task::JoinHandle,
+};
+use tracing::{debug, error, trace, warn};
 
 /// Errors that can occur on the [`BlockWatcher`] task.
 #[derive(Debug, thiserror::Error)]
@@ -64,21 +66,31 @@ impl BlockWatcher {
     }
 
     async fn task_future(self) {
-        let sub = match self.host_provider.subscribe_blocks().await {
+        let mut sub = match self.host_provider.subscribe_blocks().await {
             Ok(sub) => sub,
-            Err(err) => {
-                error!(error = ?err, "failed to subscribe to host chain blocks");
+            Err(error) => {
+                error!(%error);
                 return;
             }
         };
-        let mut stream = sub.into_stream();
 
         debug!("subscribed to host chain blocks");
 
-        while let Some(header) = stream.next().await {
-            let block_number = header.number;
-            self.block_number.send_replace(block_number);
-            trace!(block_number, "updated host block number");
+        loop {
+            match sub.recv().await {
+                Ok(header) => {
+                    let block_number = header.number;
+                    self.block_number.send_replace(block_number);
+                    trace!(block_number, "updated host block number");
+                }
+                Err(RecvError::Lagged(missed)) => {
+                    warn!(%missed, "block subscription lagged");
+                }
+                Err(RecvError::Closed) => {
+                    error!("block subscription closed");
+                    break;
+                }
+            }
         }
     }
 }
