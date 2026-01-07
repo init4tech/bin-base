@@ -21,7 +21,7 @@ use std::{
     sync::{Arc, LazyLock},
 };
 use tower::{Layer, Service};
-use tracing::info;
+use tracing::{debug, info, info_span, Instrument};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 const ATTEMPTS: &str = "init4.perms.attempts";
@@ -187,18 +187,18 @@ where
         LazyLock::force(&DESCRIBE);
 
         Box::pin(async move {
+            let current_slot = this.builders.calc().current_slot();
             let span = tracing::info_span!(
                 "builder::permissioning",
-                builder = tracing::field::Empty,
+                otel.status_code = tracing::field::Empty,
                 permissioned_builder = this.builders.current_builder().sub(),
                 requesting_builder = tracing::field::Empty,
-                current_slot = this.builders.calc().current_slot(),
+                current_slot,
                 current_timepoint_within_slot = this
                     .builders
                     .calc()
                     .current_point_within_slot()
                     .expect("host chain has started"),
-                otel.status_code = tracing::field::Empty
             );
 
             let guard = span.enter();
@@ -213,7 +213,7 @@ where
                         description: Cow::Owned(err.1.message.to_string()),
                     });
                     info!(api_err = %err.1.message, "permission denied");
-                    counter!("init4.perms.missing_header").increment(1);
+                    counter!(MISSING_HEADER).increment(1);
                     return Ok(err.into_response());
                 }
             };
@@ -227,17 +227,22 @@ where
 
                 let hint = builder_permissioning_hint(&err);
 
-                counter!("init4.perms.permission_denied", "builder" => sub.to_string())
-                    .increment(1);
+                counter!(
+                    PERMISSION_DENIED,
+                    "builder" => sub.to_string())
+                .increment(1);
 
                 return Ok(ApiError::permission_denied(hint).into_response());
             }
-
-            drop(guard);
-            info!("builder permissioned successfully");
+            debug!("builder permissioned successfully");
             counter!(SUCCESS, "builder" => sub.to_string()).increment(1);
+            drop(guard);
 
-            this.inner.call(req).await
+            // Create a new span for the inner service call.
+            let span = info_span!("authentication", builder = sub, current_slot);
+            let _ = sub; // drops the borrow so we can move req below
+
+            this.inner.call(req).instrument(span).await
         })
     }
 }
