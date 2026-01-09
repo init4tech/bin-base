@@ -10,21 +10,7 @@ use tokio::{
     sync::{broadcast::error::RecvError, watch},
     task::JoinHandle,
 };
-use tracing::{debug, error, trace, warn};
-
-/// Errors that can occur on the [`BlockWatcher`] task.
-#[derive(Debug, thiserror::Error)]
-pub enum BlockWatcherError {
-    /// Failed to subscribe to host chain blocks.
-    #[error("failed to subscribe to host chain blocks: {0}")]
-    SubscribeError(TransportError),
-}
-
-impl From<TransportError> for BlockWatcherError {
-    fn from(err: TransportError) -> Self {
-        BlockWatcherError::SubscribeError(err)
-    }
-}
+use tracing::{debug, error, info, trace, warn};
 
 /// Host chain block watcher that subscribes to new blocks and broadcasts
 /// updates via a watch channel.
@@ -50,7 +36,7 @@ impl BlockWatcher {
     /// Creates a new [`BlockWatcher`], fetching the current block number first.
     pub async fn with_current_block(
         host_provider: RootProvider<Ethereum>,
-    ) -> Result<Self, BlockWatcherError> {
+    ) -> Result<Self, TransportError> {
         let block_number = host_provider.get_block_number().await?;
         Ok(Self::new(host_provider, block_number))
     }
@@ -61,8 +47,8 @@ impl BlockWatcher {
     }
 
     /// Spawns the block watcher task.
-    pub fn spawn(self) -> JoinHandle<()> {
-        tokio::spawn(self.task_future())
+    pub fn spawn(self) -> (SharedBlockNumber, JoinHandle<()>) {
+        (self.subscribe(), tokio::spawn(self.task_future()))
     }
 
     async fn task_future(self) {
@@ -87,7 +73,7 @@ impl BlockWatcher {
                     warn!(%missed, "block subscription lagged");
                 }
                 Err(RecvError::Closed) => {
-                    error!("block subscription closed");
+                    info!("block subscription closed");
                     break;
                 }
             }
