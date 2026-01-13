@@ -2,7 +2,7 @@ use crate::perms::oauth::SharedToken;
 use serde::de::DeserializeOwned;
 use signet_tx_cache::{
     error::Result,
-    types::{CacheObject, TxCacheBundle, TxCacheBundleResponse, TxCacheBundlesResponse},
+    types::{BundleKey, CacheObject, TxCacheBundle, TxCacheBundleResponse, TxCacheBundlesResponse},
     TxCache,
 };
 use tracing::{instrument, warn};
@@ -97,8 +97,8 @@ impl BuilderTxCache {
 
     /// Get bundles from the cache.
     #[instrument(skip_all)]
-    pub async fn get_bundles(&self) -> Result<Vec<TxCacheBundle>> {
-        self.get_inner_with_token::<TxCacheBundlesResponse>(BUNDLES, None)
+    pub async fn get_bundles(&self, query: Option<BundleKey>) -> Result<Vec<TxCacheBundle>> {
+        self.get_inner_with_token::<TxCacheBundlesResponse>(BUNDLES, query)
             .await
             .map(|response| response.bundles)
     }
