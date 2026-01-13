@@ -10,7 +10,7 @@ use tokio::{
     sync::{broadcast::error::RecvError, watch},
     task::JoinHandle,
 };
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, trace};
 
 /// Host chain block watcher that subscribes to new blocks and broadcasts
 /// updates via a watch channel.
@@ -70,10 +70,10 @@ impl BlockWatcher {
                     trace!(block_number, "updated host block number");
                 }
                 Err(RecvError::Lagged(missed)) => {
-                    warn!(%missed, "block subscription lagged");
+                    debug!(%missed, "block subscription lagged");
                 }
                 Err(RecvError::Closed) => {
-                    info!("block subscription closed");
+                    debug!("block subscription closed");
                     break;
                 }
             }
