@@ -96,11 +96,26 @@ impl BuilderTxCache {
     }
 
     /// Get bundles from the cache.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - Optional pagination parameters. Pass `None` to retrieve the
+    ///   first page of bundles. Pass `Some(BundleKey)` with pagination tokens
+    ///   from the previous response to retrieve subsequent pages of results.
+    ///
+    /// # Returns
+    ///
+    /// A response containing bundles for the current page and an
+    /// optional pagination key. If the pagination key is present, there are
+    /// more pages available. Pass this key to subsequent calls to retrieve
+    /// the next page.
+    ///
+    /// Returns an error if the request fails or the builder is not permissioned
+    /// for the current slot.
     #[instrument(skip_all)]
-    pub async fn get_bundles(&self, query: Option<BundleKey>) -> Result<Vec<TxCacheBundle>> {
+    pub async fn get_bundles(&self, query: Option<BundleKey>) -> Result<TxCacheBundlesResponse> {
         self.get_inner_with_token::<TxCacheBundlesResponse>(BUNDLES, query)
             .await
-            .map(|response| response.bundles)
     }
 
     fn get_bundle_url_path(&self, bundle_id: &str) -> String {
