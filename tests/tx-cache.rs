@@ -10,7 +10,7 @@ const URL: &str = "https://transactions.parmigiana.signet.sh";
 async fn test_tx_cache_get_bundles() {
     let client = BuilderTxCache::new_from_string(URL, SharedToken::empty()).unwrap();
 
-    let bundles = client.get_bundles().await.unwrap_err();
+    let bundles = client.get_bundles(None).await.unwrap_err();
 
     assert!(matches!(bundles, TxCacheError::NotOurSlot));
 }
