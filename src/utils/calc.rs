@@ -1,5 +1,6 @@
 use crate::utils::from_env::{EnvItemInfo, FromEnv, FromEnvErr, FromEnvVar};
-use signet_constants::KnownChains;
+#[allow(deprecated)]
+use signet_constants::{mainnet, parmigiana, pecorino, test_utils, KnownChains};
 use std::{num::ParseIntError, str::FromStr};
 
 /// A slot calculator, which can calculate slot numbers, windows, and offsets
@@ -95,27 +96,32 @@ impl SlotCalculator {
     /// Create a new slot calculator for Parmigiana host network.
     pub const fn parmigiana_host() -> Self {
         Self {
-            start_timestamp: 1765226348,
-            slot_offset: 0,
-            slot_duration: 12,
+            start_timestamp: parmigiana::HOST_START_TIMESTAMP,
+            slot_offset: parmigiana::HOST_SLOT_OFFSET as usize,
+            slot_duration: parmigiana::HOST_SLOT_DURATION,
         }
     }
 
     /// Create a new slot calculator for Pecorino host network.
+    #[deprecated(note = "Pecorino is being deprecated in favor of Parmigiana")]
+    #[expect(
+        deprecated,
+        reason = "This deprecated function consumes deprecated consts"
+    )]
     pub const fn pecorino_host() -> Self {
         Self {
-            start_timestamp: 1754584265,
-            slot_offset: 0,
-            slot_duration: 12,
+            start_timestamp: pecorino::HOST_START_TIMESTAMP,
+            slot_offset: pecorino::HOST_SLOT_OFFSET as usize,
+            slot_duration: pecorino::HOST_SLOT_DURATION,
         }
     }
 
     /// Create a new slot calculator for Ethereum mainnet.
     pub const fn mainnet() -> Self {
         Self {
-            start_timestamp: 1663224179,
-            slot_offset: 4700013,
-            slot_duration: 12,
+            start_timestamp: mainnet::HOST_START_TIMESTAMP,
+            slot_offset: mainnet::HOST_SLOT_OFFSET as usize,
+            slot_duration: mainnet::HOST_SLOT_DURATION,
         }
     }
 
@@ -338,7 +344,11 @@ impl From<KnownChains> for SlotCalculator {
             KnownChains::Parmigiana => SlotCalculator::parmigiana_host(),
             #[allow(deprecated)]
             KnownChains::Pecorino => SlotCalculator::pecorino_host(),
-            KnownChains::Test => SlotCalculator::new(12, 0, 12),
+            KnownChains::Test => SlotCalculator::new(
+                test_utils::HOST_START_TIMESTAMP,
+                test_utils::HOST_SLOT_OFFSET as usize,
+                test_utils::HOST_SLOT_DURATION,
+            ),
         }
     }
 }
