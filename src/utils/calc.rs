@@ -104,7 +104,10 @@ impl SlotCalculator {
 
     /// Create a new slot calculator for Pecorino host network.
     #[deprecated(note = "Pecorino is being deprecated in favor of Parmigiana")]
-    #[expect(deprecated, reason = "This deprecated function consumes deprecated consts")]
+    #[expect(
+        deprecated,
+        reason = "This deprecated function consumes deprecated consts"
+    )]
     pub const fn pecorino_host() -> Self {
         Self {
             start_timestamp: pecorino::HOST_START_TIMESTAMP,
