@@ -14,3 +14,9 @@ pub mod middleware;
 ///
 /// [`BuilderTxCache`]: tx_cache::BuilderTxCache
 pub mod tx_cache;
+
+/// Contains [`PylonClient`] for interacting with the Pylon blob server API.
+///
+/// [`PylonClient`]: pylon::PylonClient
+#[cfg(feature = "pylon")]
+pub mod pylon;

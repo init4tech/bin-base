@@ -72,6 +72,7 @@ default = ["alloy", "rustls"]
 alloy = ["dep:alloy"]
 aws = ["alloy", "alloy?/signer-aws", "dep:async-trait", "dep:aws-config", "dep:aws-sdk-kms"]
 perms = ["dep:oauth2", "dep:tokio", "dep:reqwest", "dep:signet-tx-cache"]
+pylon = ["perms", "alloy/kzg"]
 block_watcher = ["dep:tokio"]
 rustls = ["dep:rustls", "rustls/aws-lc-rs"]
 
