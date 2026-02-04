@@ -104,8 +104,8 @@ impl PylonClient {
     /// - The KZG conversion from EIP-4844 to EIP-7594 failed ([`PylonError::KzgConversion`])
     /// - A network error occurred ([`PylonError::Request`])
     ///
-    /// [`B256`]: https://docs.rs/alloy/latest/alloy/primitives/aliases/type.B256.html
-    /// [`BlobTransactionSidecarVariant`]: https://docs.rs/alloy/latest/alloy/consensus/transaction/eip4844/enum.BlobTransactionSidecarVariant.html
+    /// [`B256`]: <https://docs.rs/alloy/latest/alloy/primitives/aliases/type.B256.html>
+    /// [`BlobTransactionSidecarVariant`]: <https://docs.rs/alloy/latest/alloy/consensus/transaction/eip4844/enum.BlobTransactionSidecarVariant.html>
     #[instrument(skip_all)]
     pub async fn post_sidecar(
         &self,
@@ -138,15 +138,15 @@ impl PylonClient {
             .await?;
 
         match response.status() {
-            status if status.is_success() => Ok(()),
-            status if status == reqwest::StatusCode::BAD_REQUEST => {
+            reqwest::StatusCode::OK => Ok(()),
+            reqwest::StatusCode::BAD_REQUEST => {
                 let text = response.text().await.unwrap_or_default();
                 Err(PylonError::InvalidSidecar(text))
             }
-            status if status == reqwest::StatusCode::CONFLICT => {
+            reqwest::StatusCode::CONFLICT => {
                 Err(PylonError::SidecarAlreadyExists)
             }
-            status if status.is_server_error() => {
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
                 let text = response.text().await.unwrap_or_default();
                 Err(PylonError::InternalError(text))
             }
