@@ -4,7 +4,7 @@ use alloy::{
     primitives::B256,
 };
 use thiserror::Error;
-use tracing::{instrument, warn};
+use tracing::instrument;
 
 /// Errors that can occur when interacting with the Pylon API.
 #[derive(Debug, Error)]
@@ -32,6 +32,10 @@ pub enum PylonError {
     /// KZG conversion error when converting EIP-4844 to EIP-7594.
     #[error("KZG conversion error: {0}")]
     KzgConversion(String),
+
+    /// Missing auth token.
+    #[error("missing auth token")]
+    MissingAuthToken(tokio::sync::watch::error::RecvError),
 }
 
 /// A client for interacting with the Pylon blob server API.
@@ -124,10 +128,11 @@ impl PylonClient {
         };
 
         let url = self.url.join(&format!("v2/sidecar/{tx_hash}"))?;
-        let secret = self.token.secret().await.unwrap_or_else(|_| {
-            warn!("Failed to get token secret");
-            "".to_string()
-        });
+        let secret = self
+            .token
+            .secret()
+            .await
+            .map_err(PylonError::MissingAuthToken)?;
 
         let response = self
             .client
