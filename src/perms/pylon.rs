@@ -143,9 +143,7 @@ impl PylonClient {
                 let text = response.text().await.unwrap_or_default();
                 Err(PylonError::InvalidSidecar(text))
             }
-            reqwest::StatusCode::CONFLICT => {
-                Err(PylonError::SidecarAlreadyExists)
-            }
+            reqwest::StatusCode::CONFLICT => Err(PylonError::SidecarAlreadyExists),
             reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
                 let text = response.text().await.unwrap_or_default();
                 Err(PylonError::InternalError(text))
