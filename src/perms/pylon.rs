@@ -1,8 +1,5 @@
 use crate::perms::oauth::SharedToken;
-use alloy::{
-    consensus::{BlobTransactionSidecarVariant, EnvKzgSettings},
-    primitives::B256,
-};
+use alloy::{consensus::BlobTransactionSidecarEip7594, primitives::B256};
 use thiserror::Error;
 use tracing::instrument;
 
@@ -28,10 +25,6 @@ pub enum PylonError {
     /// URL parse error.
     #[error("URL parse error: {0}")]
     UrlParse(#[from] url::ParseError),
-
-    /// KZG conversion error when converting EIP-4844 to EIP-7594.
-    #[error("KZG conversion error: {0}")]
-    KzgConversion(String),
 
     /// Missing auth token.
     #[error("missing auth token")]
@@ -97,7 +90,7 @@ impl PylonClient {
     /// # Arguments
     ///
     /// * `tx_hash` - The transaction hash ([`B256`]).
-    /// * `sidecar` - The blob transaction sidecar ([`BlobTransactionSidecarVariant`]).
+    /// * `sidecar` - The blob transaction sidecar ([`BlobTransactionSidecarEip7594`]).
     ///
     /// # Errors
     ///
@@ -105,28 +98,16 @@ impl PylonClient {
     /// - The sidecar format is invalid ([`PylonError::InvalidSidecar`])
     /// - A sidecar already exists for this transaction hash ([`PylonError::SidecarAlreadyExists`])
     /// - An internal server error occurred ([`PylonError::InternalError`])
-    /// - The KZG conversion from EIP-4844 to EIP-7594 failed ([`PylonError::KzgConversion`])
     /// - A network error occurred ([`PylonError::Request`])
     ///
     /// [`B256`]: <https://docs.rs/alloy/latest/alloy/primitives/aliases/type.B256.html>
-    /// [`BlobTransactionSidecarVariant`]: <https://docs.rs/alloy/latest/alloy/consensus/transaction/eip4844/enum.BlobTransactionSidecarVariant.html>
+    /// [`BlobTransactionSidecarEip7594`]: <https://docs.rs/alloy/latest/alloy/consensus/struct.BlobTransactionSidecarEip7594.html>
     #[instrument(skip_all)]
     pub async fn post_sidecar(
         &self,
         tx_hash: B256,
-        sidecar: BlobTransactionSidecarVariant,
+        sidecar: BlobTransactionSidecarEip7594,
     ) -> Result<(), PylonError> {
-        // Convert to EIP-7594 if necessary
-        let sidecar = match sidecar {
-            BlobTransactionSidecarVariant::Eip4844(s) => {
-                let converted = s
-                    .try_into_7594(EnvKzgSettings::Default.get())
-                    .map_err(|e| PylonError::KzgConversion(e.to_string()))?;
-                BlobTransactionSidecarVariant::Eip7594(converted)
-            }
-            eip7594 @ BlobTransactionSidecarVariant::Eip7594(_) => eip7594,
-        };
-
         let url = self.url.join(&format!("v2/sidecar/{tx_hash}"))?;
         let secret = self
             .token
