@@ -1,5 +1,5 @@
 use crate::perms::oauth::SharedToken;
-use alloy::{consensus::BlobTransactionSidecarEip7594, primitives::B256};
+use alloy::consensus::TxEnvelope;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -10,7 +10,7 @@ pub enum PylonError {
     #[error("invalid sidecar: {0}")]
     InvalidSidecar(String),
 
-    /// Sidecar already exists for this transaction hash (409).
+    /// Sidecar already exists for this transaction (409).
     #[error("sidecar already exists")]
     SidecarAlreadyExists,
 
@@ -103,11 +103,18 @@ impl PylonClient {
     /// [`B256`]: <https://docs.rs/alloy/latest/alloy/primitives/aliases/type.B256.html>
     /// [`BlobTransactionSidecarEip7594`]: <https://docs.rs/alloy/latest/alloy/consensus/struct.BlobTransactionSidecarEip7594.html>
     #[instrument(skip_all)]
-    pub async fn post_sidecar(
-        &self,
-        tx_hash: B256,
-        sidecar: BlobTransactionSidecarEip7594,
-    ) -> Result<(), PylonError> {
+    pub async fn post_sidecar(&self, tx: TxEnvelope) -> Result<(), PylonError> {
+        // verify that the sidecar is in EIP-7594 format
+        let is_eip7594 = tx
+            .as_eip4844()
+            .and_then(|tx| tx.tx().sidecar().map(|v| v.is_eip7594()));
+        if is_eip7594 != Some(true) {
+            return Err(PylonError::InvalidSidecar(
+                "sidecar is not in EIP-7594 format".to_string(),
+            ));
+        }
+
+        let tx_hash = tx.hash();
         let url = self.url.join(&format!("v2/sidecar/{tx_hash}"))?;
         let secret = self
             .token
@@ -118,7 +125,7 @@ impl PylonClient {
         let response = self
             .client
             .post(url)
-            .json(&sidecar)
+            .json(&tx)
             .bearer_auth(secret)
             .send()
             .await?;
