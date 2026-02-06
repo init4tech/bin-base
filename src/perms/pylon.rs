@@ -1,8 +1,5 @@
 use crate::perms::oauth::SharedToken;
-use alloy::{
-    consensus::TxEnvelope,
-    eips::{eip2718::Eip2718Error, Decodable2718},
-};
+use alloy::eips::eip2718::Eip2718Error;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -109,20 +106,8 @@ impl PylonClient {
     ///
     /// [`Bytes`]: https://docs.rs/alloy/latest/alloy/primitives/struct.Bytes.html
     #[instrument(skip_all)]
-    pub async fn post_sidecar(&self, tx: alloy::primitives::Bytes) -> Result<(), PylonError> {
-        let tx = TxEnvelope::decode_2718(&mut tx.0.as_ref())
-            .map_err(PylonError::InvalidTransactionBytes)?;
-
-        // The sidecar must be in EIP-7594 format
-        tx.as_eip4844()
-            .and_then(|tx| tx.tx().sidecar())
-            .filter(|s| s.is_eip7594())
-            .ok_or_else(|| {
-                PylonError::InvalidSidecar("sidecar is not in EIP-7594 format".into())
-            })?;
-
-        let tx_hash = tx.hash();
-        let url = self.url.join(&format!("v2/sidecar/{tx_hash}"))?;
+    pub async fn post_sidecar(&self, raw_tx: alloy::primitives::Bytes) -> Result<(), PylonError> {
+        let url = self.url.join("v2/sidecar")?;
         let secret = self
             .token
             .secret()
@@ -132,13 +117,14 @@ impl PylonClient {
         let response = self
             .client
             .post(url)
-            .json(&tx)
+            .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
+            .body(raw_tx.to_vec())
             .bearer_auth(secret)
             .send()
             .await?;
 
         match response.status() {
-            reqwest::StatusCode::OK => Ok(()),
+            reqwest::StatusCode::CREATED => Ok(()),
             reqwest::StatusCode::BAD_REQUEST => {
                 let text = response.text().await.unwrap_or_default();
                 Err(PylonError::InvalidSidecar(text))
