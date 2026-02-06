@@ -1,5 +1,8 @@
 use crate::perms::oauth::SharedToken;
-use alloy::consensus::TxEnvelope;
+use alloy::{
+    consensus::TxEnvelope,
+    eips::{eip2718::Eip2718Error, Decodable2718},
+};
 use thiserror::Error;
 use tracing::instrument;
 
@@ -29,6 +32,10 @@ pub enum PylonError {
     /// Missing auth token.
     #[error("missing auth token")]
     MissingAuthToken(tokio::sync::watch::error::RecvError),
+
+    /// Invalid transaction bytes.
+    #[error("invalid transaction bytes: {0}")]
+    InvalidTransactionBytes(Eip2718Error),
 }
 
 /// A client for interacting with the Pylon blob server API.
@@ -84,35 +91,35 @@ impl PylonClient {
 
     /// Post a blob transaction sidecar to the Pylon server.
     ///
-    /// If the sidecar is in EIP-4844 format, it will be converted to EIP-7594
-    /// format before posting.
+    /// The transaction must be an EIP-4844 blob transaction with an EIP-7594
+    /// sidecar attached. Non-EIP-7594 sidecars will be rejected.
     ///
     /// # Arguments
     ///
-    /// * `tx_hash` - The transaction hash ([`B256`]).
-    /// * `sidecar` - The blob transaction sidecar ([`BlobTransactionSidecarEip7594`]).
+    /// * `tx` - The raw EIP-2718 encoded transaction bytes ([`Bytes`]).
     ///
     /// # Errors
     ///
     /// Returns an error if:
-    /// - The sidecar format is invalid ([`PylonError::InvalidSidecar`])
+    /// - The transaction bytes are invalid ([`PylonError::InvalidTransactionBytes`])
+    /// - The sidecar is missing or not in EIP-7594 format ([`PylonError::InvalidSidecar`])
     /// - A sidecar already exists for this transaction hash ([`PylonError::SidecarAlreadyExists`])
     /// - An internal server error occurred ([`PylonError::InternalError`])
     /// - A network error occurred ([`PylonError::Request`])
     ///
-    /// [`B256`]: <https://docs.rs/alloy/latest/alloy/primitives/aliases/type.B256.html>
-    /// [`BlobTransactionSidecarEip7594`]: <https://docs.rs/alloy/latest/alloy/consensus/struct.BlobTransactionSidecarEip7594.html>
+    /// [`Bytes`]: https://docs.rs/alloy/latest/alloy/primitives/struct.Bytes.html
     #[instrument(skip_all)]
-    pub async fn post_sidecar(&self, tx: TxEnvelope) -> Result<(), PylonError> {
-        // verify that the sidecar is in EIP-7594 format
-        let is_eip7594 = tx
-            .as_eip4844()
-            .and_then(|tx| tx.tx().sidecar().map(|v| v.is_eip7594()));
-        if is_eip7594 != Some(true) {
-            return Err(PylonError::InvalidSidecar(
-                "sidecar is not in EIP-7594 format".to_string(),
-            ));
-        }
+    pub async fn post_sidecar(&self, tx: alloy::primitives::Bytes) -> Result<(), PylonError> {
+        let tx = TxEnvelope::decode_2718(&mut tx.0.as_ref())
+            .map_err(PylonError::InvalidTransactionBytes)?;
+
+        // The sidecar must be in EIP-7594 format
+        tx.as_eip4844()
+            .and_then(|tx| tx.tx().sidecar())
+            .filter(|s| s.is_eip7594())
+            .ok_or_else(|| {
+                PylonError::InvalidSidecar("sidecar is not in EIP-7594 format".into())
+            })?;
 
         let tx_hash = tx.hash();
         let url = self.url.join(&format!("v2/sidecar/{tx_hash}"))?;
