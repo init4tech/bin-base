@@ -24,6 +24,18 @@ pub enum BuilderTxCacheError {
     TxCache(#[from] TxCacheError),
 }
 
+impl From<reqwest::Error> for BuilderTxCacheError {
+    fn from(err: reqwest::Error) -> Self {
+        BuilderTxCacheError::TxCache(TxCacheError::Reqwest(err))
+    }
+}
+
+impl From<url::ParseError> for BuilderTxCacheError {
+    fn from(err: url::ParseError) -> Self {
+        BuilderTxCacheError::TxCache(TxCacheError::Url(err))
+    }
+}
+
 const BUNDLES: &str = "bundles";
 
 /// A client for interacting with the transaction cache, a thin wrapper around
