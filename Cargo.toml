@@ -3,7 +3,7 @@ name = "init4-bin-base"
 
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
-version = "0.18.0-rc.7"
+version = "0.18.0-rc.8"
 edition = "2021"
 rust-version = "1.85"
 authors = ["init4", "James Prestwich", "evalir"]
@@ -12,7 +12,7 @@ homepage = "https://github.com/init4tech/bin-base"
 repository = "https://github.com/init4tech/bin-base"
 
 [dependencies]
-init4-from-env-derive =  "0.1.0"
+init4-from-env-derive = { version = "0.2.0", path = "from-env-derive" }
 
 # Signet
 signet-constants = { version = "0.16.0-rc.7" }

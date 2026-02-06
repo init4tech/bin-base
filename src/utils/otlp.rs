@@ -84,8 +84,6 @@ pub struct OtelConfig {
 }
 
 impl FromEnv for OtelConfig {
-    type Error = url::ParseError;
-
     fn inventory() -> Vec<&'static EnvItemInfo> {
         vec![
             &EnvItemInfo {
@@ -107,7 +105,7 @@ impl FromEnv for OtelConfig {
         ]
     }
 
-    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env() -> Result<Self, FromEnvErr> {
         // load endpoint from env. ignore empty values (shortcut return None), parse, and print the error if any using inspect_err
         let endpoint = Url::from_env_var(OTEL_ENDPOINT)?;
 

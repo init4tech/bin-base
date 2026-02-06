@@ -1,4 +1,3 @@
-use heck::ToPascalCase;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{spanned::Spanned, Ident, LitStr};
@@ -89,26 +88,6 @@ impl TryFrom<&syn::Field> for Field {
 }
 
 impl Field {
-    pub(crate) fn trait_name(&self) -> TokenStream {
-        self.env_var
-            .as_ref()
-            .map(|_| quote! { FromEnvVar })
-            .unwrap_or(quote! { FromEnv })
-    }
-
-    pub(crate) fn as_trait(&self) -> TokenStream {
-        let field_trait = self.trait_name();
-        let field_type = &self.field_type;
-
-        quote! { <#field_type as #field_trait> }
-    }
-
-    pub(crate) fn assoc_err(&self) -> TokenStream {
-        let as_trait = self.as_trait();
-
-        quote! { #as_trait::Error }
-    }
-
     pub(crate) fn field_name(&self, idx: usize) -> Ident {
         if let Some(field_name) = self.field_name.as_ref() {
             return field_name.clone();
@@ -120,41 +99,7 @@ impl Field {
             .unwrap()
     }
 
-    /// Produces the name of the enum variant for the field
-    pub(crate) fn enum_variant_name(&self, idx: usize) -> Option<TokenStream> {
-        if self.skip || self.infallible {
-            return None;
-        }
-
-        let n = self.field_name(idx).to_string().to_pascal_case();
-
-        let n: Ident = syn::parse_str::<Ident>(&n)
-            .map_err(|_| syn::Error::new(self.span, "Failed to create field name"))
-            .unwrap();
-
-        Some(quote! { #n })
-    }
-
-    /// Produces the variant, containing the error type
-    pub(crate) fn expand_enum_variant(&self, idx: usize) -> Option<TokenStream> {
-        let variant_name = self.enum_variant_name(idx)?;
-        let var_name_str = variant_name.to_string();
-        let assoc_err = self.assoc_err();
-
-        Some(quote! {
-            #[doc = "Error for "]
-            #[doc = #var_name_str]
-            #variant_name(#assoc_err)
-        })
-    }
-
-    /// Produces the a line for the `inventory` function
-    /// of the form
-    /// items.push(...); // (if this is a FromEnvVar)
-    /// or
-    /// items.extend(...); // (if this is a FromEnv)
-    /// or
-    /// // nothing if this is a skip
+    /// Produces a line for the `inventory` function
     pub(crate) fn expand_env_item_info(&self) -> TokenStream {
         if self.skip {
             return quote! {};
@@ -183,39 +128,7 @@ impl Field {
         }
     }
 
-    pub(crate) fn expand_variant_display(&self, idx: usize) -> Option<TokenStream> {
-        let variant_name = self.enum_variant_name(idx)?;
-
-        Some(quote! {
-            Self::#variant_name(err) => err.fmt(f)
-        })
-    }
-
-    pub(crate) fn expand_variant_source(&self, idx: usize) -> Option<TokenStream> {
-        let variant_name = self.enum_variant_name(idx)?;
-
-        Some(quote! {
-            Self::#variant_name(err) => Some(err)
-        })
-    }
-
-    pub(crate) fn expand_item_from_env(&self, err_ident: &syn::Path, idx: usize) -> TokenStream {
-        // Produces code fo the following form:
-        // ```rust
-        // // EITHER
-        // let field_name = env::var(#self.env_var.unwrap()).map_err(|e| e.map(#ErroEnum::FieldName))?;
-
-        // // OR
-        // let field_name =  FromEnvVar::from_env_var(#self.env_var.unwrap()).map_err(|e| e.map(#ErroEnum::FieldName))?;
-
-        // // OR
-        // let field_name =  FromEnv::from_env().map_err()?;
-
-        // // OR
-        // let field_name = Default::default();
-
-        //```
-        let variant = self.enum_variant_name(idx);
+    pub(crate) fn expand_item_from_env(&self, idx: usize) -> TokenStream {
         let field_name = self.field_name(idx);
 
         if self.skip {
@@ -230,15 +143,15 @@ impl Field {
             quote! { FromEnv::from_env() }
         };
 
-        let map_line = if self.infallible {
-            quote! { FromEnvErr::infallible_into }
+        if self.infallible {
+            quote! {
+                let #field_name = #fn_invoc
+                    .map_err(FromEnvErr::infallible_into)?;
+            }
         } else {
-            quote! { |e| e.map(#err_ident::#variant) }
-        };
-
-        quote! {
-            let #field_name = #fn_invoc
-                .map_err(#map_line)?;
+            quote! {
+                let #field_name = #fn_invoc?;
+            }
         }
     }
 }

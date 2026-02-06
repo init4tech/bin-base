@@ -66,9 +66,7 @@ impl Builder {
 }
 
 impl FromEnvVar for Builder {
-    type Error = std::convert::Infallible;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
         Ok(Self {
             sub: String::from_env_var(env_var)?,
         })
