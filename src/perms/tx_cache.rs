@@ -1,11 +1,28 @@
 use crate::perms::oauth::SharedToken;
 use serde::de::DeserializeOwned;
 use signet_tx_cache::{
-    error::Result,
+    error::TxCacheError,
     types::{BundleKey, CacheObject, TxCacheBundle, TxCacheBundleResponse, TxCacheBundlesResponse},
     TxCache,
 };
-use tracing::{instrument, warn};
+use thiserror::Error;
+use tokio::sync::watch;
+use tracing::instrument;
+
+/// Result type for [`BuilderTxCache`] operations.
+pub type Result<T> = std::result::Result<T, BuilderTxCacheError>;
+
+/// Errors that can occur when using the [`BuilderTxCache`] client.
+#[derive(Debug, Error)]
+pub enum BuilderTxCacheError {
+    /// Failed to retrieve the authentication token.
+    #[error("failed to retrieve auth token: {0}")]
+    TokenRetrieval(#[from] watch::error::RecvError),
+
+    /// An error occurred during a TxCache operation.
+    #[error(transparent)]
+    TxCache(#[from] TxCacheError),
+}
 
 const BUNDLES: &str = "bundles";
 
@@ -77,10 +94,7 @@ impl BuilderTxCache {
         T: DeserializeOwned + CacheObject,
     {
         let url = self.tx_cache.url().join(join)?;
-        let secret = self.token.secret().await.unwrap_or_else(|_| {
-            warn!("Failed to get token secret");
-            "".to_string()
-        });
+        let secret = self.token.secret().await?;
 
         self.tx_cache
             .client()
