@@ -118,7 +118,7 @@ impl PylonClient {
             .client
             .post(url)
             .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
-            .body(raw_tx.to_vec())
+            .body(raw_tx.0)
             .bearer_auth(secret)
             .send()
             .await?;
