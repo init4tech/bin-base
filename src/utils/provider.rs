@@ -39,11 +39,11 @@ impl From<TransportError> for ProviderConnectError {
 }
 
 impl FromEnvVar for BuiltInConnectionString {
-    type Error = ProviderConnectError;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
         let conn_str = String::from_env_var(env_var).map_err(FromEnvErr::infallible_into)?;
-        let built_in = conn_str.parse().map_err(ProviderConnectError::from)?;
+        let built_in = conn_str
+            .parse()
+            .map_err(|error| FromEnvErr::parse_error(env_var, ProviderConnectError::from(error)))?;
         Ok(built_in)
     }
 }
@@ -72,9 +72,7 @@ impl ProviderConfig {
 }
 
 impl FromEnvVar for ProviderConfig {
-    type Error = ProviderConnectError;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
         let connection_string = BuiltInConnectionString::from_env_var(env_var)?;
         Ok(Self { connection_string })
     }
@@ -126,11 +124,9 @@ impl TryFrom<BuiltInConnectionString> for PubSubConfig {
 }
 
 impl FromEnvVar for PubSubConfig {
-    type Error = ProviderConnectError;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
         let cs = BuiltInConnectionString::from_env_var(env_var)?;
-        Self::try_from(cs).map_err(FromEnvErr::ParseError)
+        Self::try_from(cs).map_err(|error| FromEnvErr::parse_error(env_var, error))
     }
 }
 

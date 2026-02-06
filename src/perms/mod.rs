@@ -1,8 +1,8 @@
 pub(crate) mod builders;
-pub use builders::{Builder, BuilderPermissionError, Builders, BuildersEnvError};
+pub use builders::{Builder, BuilderPermissionError, Builders};
 
 pub(crate) mod config;
-pub use config::{SlotAuthzConfig, SlotAuthzConfigEnvError};
+pub use config::SlotAuthzConfig;
 
 pub(crate) mod oauth;
 pub use oauth::{Authenticator, OAuthConfig, SharedToken};

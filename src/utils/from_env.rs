@@ -1,8 +1,8 @@
 use signet_constants::{
-    HostConstants, ParseChainError, RollupConstants, SignetConstants, SignetEnvironmentConstants,
+    HostConstants, RollupConstants, SignetConstants, SignetEnvironmentConstants,
     SignetSystemConstants,
 };
-use std::{convert::Infallible, env::VarError, num::ParseIntError, str::FromStr};
+use std::{env::VarError, str::FromStr};
 use tracing_core::metadata::ParseLevelError;
 
 use crate::utils::calc::SlotCalculator;
@@ -153,8 +153,8 @@ pub struct EnvItemInfo {
 
 /// Error type for loading from the environment. See the [`FromEnv`] trait for
 /// more information.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum FromEnvErr<Inner> {
+#[derive(Debug, thiserror::Error)]
+pub enum FromEnvErr {
     /// The environment variable is missing.
     #[error("error reading variable {0}: {1}")]
     EnvError(String, VarError),
@@ -162,45 +162,22 @@ pub enum FromEnvErr<Inner> {
     #[error("environment variable {0} is empty")]
     Empty(String),
     /// The environment variable is present, but the value could not be parsed.
-    #[error("failed to parse environment variable {0}")]
-    ParseError(#[from] Inner),
+    #[error("failed to parse environment variable {0}: {1}")]
+    ParseError(String, #[source] Box<dyn core::error::Error + Send + Sync>),
 }
 
-impl FromEnvErr<Infallible> {
+impl FromEnvErr {
     /// Convert the error into another error type.
-    pub fn infallible_into<T>(self) -> FromEnvErr<T> {
+    pub fn infallible_into(self) -> FromEnvErr {
         match self {
             Self::EnvError(s, e) => FromEnvErr::EnvError(s, e),
             Self::Empty(s) => FromEnvErr::Empty(s),
-            Self::ParseError(_) => unreachable!(),
+            Self::ParseError(..) => unreachable!(),
         }
     }
 }
 
-impl<Inner> FromEnvErr<Inner> {
-    /// Create a new error from another error type.
-    pub fn from<Other>(other: FromEnvErr<Other>) -> Self
-    where
-        Inner: From<Other>,
-    {
-        match other {
-            FromEnvErr::EnvError(s, e) => Self::EnvError(s, e),
-            FromEnvErr::Empty(s) => Self::Empty(s),
-            FromEnvErr::ParseError(e) => Self::ParseError(Inner::from(e)),
-        }
-    }
-
-    /// Map the error to another type. This is useful for converting the error
-    /// type to a different type, while keeping the other error information
-    /// intact.
-    pub fn map<New>(self, f: impl FnOnce(Inner) -> New) -> FromEnvErr<New> {
-        match self {
-            Self::EnvError(s, e) => FromEnvErr::EnvError(s, e),
-            Self::Empty(s) => FromEnvErr::Empty(s),
-            Self::ParseError(e) => FromEnvErr::ParseError(f(e)),
-        }
-    }
-
+impl FromEnvErr {
     /// Missing env var.
     pub fn env_err(var: &str, e: VarError) -> Self {
         Self::EnvError(var.to_string(), e)
@@ -212,20 +189,28 @@ impl<Inner> FromEnvErr<Inner> {
     }
 
     /// Error while parsing.
-    pub const fn parse_error(err: Inner) -> Self {
-        Self::ParseError(err)
+    pub fn parse_error<E>(var: &str, err: E) -> Self
+    where
+        E: core::error::Error + Send + Sync + 'static,
+    {
+        Self::ParseError(var.to_string(), Box::new(err))
     }
 }
 
 /// Convenience function for parsing a value from the environment, if present
 /// and non-empty.
-pub fn parse_env_if_present<T: FromStr>(env_var: &str) -> Result<T, FromEnvErr<T::Err>> {
+pub fn parse_env_if_present<T>(env_var: &str) -> Result<T, FromEnvErr>
+where
+    T: FromStr,
+    T::Err: core::error::Error + Send + Sync + 'static,
+{
     let s = std::env::var(env_var).map_err(|e| FromEnvErr::env_err(env_var, e))?;
 
     if s.is_empty() {
         Err(FromEnvErr::empty(env_var))
     } else {
-        s.parse().map_err(Into::into)
+        s.parse()
+            .map_err(|error| FromEnvErr::ParseError(env_var.to_owned(), Box::new(error)))
     }
 }
 
@@ -260,28 +245,11 @@ pub fn parse_env_if_present<T: FromStr>(env_var: &str) -> Result<T, FromEnvErr<T
 ///
 /// [`FromEnv`] and [`FromEnvVar`] are often deeply nested. This means that
 /// error types are often nested as well. To avoid this, we use a single error
-/// type [`FromEnvVar`] that wraps an inner error type. This allows us to
+/// type [`FromEnvErr`] that wraps an inner error type. This allows us to
 /// ensure that env-related errors (e.g. missing env vars) are not lost in the
 /// recursive structure of parsing errors. Environment errors are always at the
-/// top level, and should never be nested. **Do not use [`FromEnvErr<T>`] as
-/// the `Error` associated type in [`FromEnv`].**
-///
-/// ```no_compile
-/// // Do not do this
-/// impl FromEnv for MyType {
-///     type Error = FromEnvErr<MyTypeErr>;
-/// }
-///
-/// // Instead do this:
-/// impl FromEnv for MyType {
-///    type Error = MyTypeErr;
-/// }
-/// ```
-///
+/// top level, and should never be nested.
 pub trait FromEnv: core::fmt::Debug + Sized + 'static {
-    /// Error type produced when loading from the environment.
-    type Error: core::error::Error + Clone + PartialEq + Eq;
-
     /// Get the required environment variable names for this type.
     ///
     /// ## Note
@@ -310,15 +278,13 @@ pub trait FromEnv: core::fmt::Debug + Sized + 'static {
     }
 
     /// Load from the environment.
-    fn from_env() -> Result<Self, FromEnvErr<Self::Error>>;
+    fn from_env() -> Result<Self, FromEnvErr>;
 }
 
 impl<T> FromEnv for Option<T>
 where
     T: FromEnv,
 {
-    type Error = T::Error;
-
     fn inventory() -> Vec<&'static EnvItemInfo> {
         T::inventory()
     }
@@ -327,7 +293,7 @@ where
         T::check_inventory()
     }
 
-    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env() -> Result<Self, FromEnvErr> {
         match T::from_env() {
             Ok(v) => Ok(Some(v)),
             Err(FromEnvErr::Empty(_)) | Err(FromEnvErr::EnvError(_, _)) => Ok(None),
@@ -340,8 +306,6 @@ impl<T> FromEnv for Box<T>
 where
     T: FromEnv,
 {
-    type Error = T::Error;
-
     fn inventory() -> Vec<&'static EnvItemInfo> {
         T::inventory()
     }
@@ -350,7 +314,7 @@ where
         T::check_inventory()
     }
 
-    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env() -> Result<Self, FromEnvErr> {
         T::from_env().map(Box::new)
     }
 }
@@ -359,8 +323,6 @@ impl<T> FromEnv for std::sync::Arc<T>
 where
     T: FromEnv,
 {
-    type Error = T::Error;
-
     fn inventory() -> Vec<&'static EnvItemInfo> {
         T::inventory()
     }
@@ -369,7 +331,7 @@ where
         T::check_inventory()
     }
 
-    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env() -> Result<Self, FromEnvErr> {
         T::from_env().map(std::sync::Arc::new)
     }
 }
@@ -379,8 +341,6 @@ where
     T: FromEnv,
     U: std::borrow::ToOwned<Owned = T> + core::fmt::Debug + ?Sized,
 {
-    type Error = T::Error;
-
     fn inventory() -> Vec<&'static EnvItemInfo> {
         T::inventory()
     }
@@ -389,7 +349,7 @@ where
         T::check_inventory()
     }
 
-    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env() -> Result<Self, FromEnvErr> {
         T::from_env().map(std::borrow::Cow::Owned)
     }
 }
@@ -406,23 +366,10 @@ where
 ///
 /// [`FromEnv`] and [`FromEnvVar`] are often deeply nested. This means that
 /// error types are often nested as well. To avoid this, we use a single error
-/// type [`FromEnvVar`] that wraps an inner error type. This allows us to
+/// type [`FromEnvErr`] that wraps an inner error type. This allows us to
 /// ensure that env-related errors (e.g. missing env vars) are not lost in the
 /// recursive structure of parsing errors. Environment errors are always at the
-/// top level, and should never be nested. **Do not use [`FromEnvErr<T>`] as
-/// the `Error` associated type in [`FromEnv`].**
-///
-/// ```no_compile
-/// // Do not do this
-/// impl FromEnv for MyType {
-///     type Error = FromEnvErr<MyTypeErr>;
-/// }
-///
-/// // Instead do this:
-/// impl FromEnv for MyType {
-///    type Error = MyTypeErr;
-/// }
-/// ```
+/// top level, and should never be nested.
 ///
 /// ## Implementing [`FromEnv`]
 ///
@@ -445,27 +392,22 @@ where
 ///
 /// // We can re-use the `FromStr` implementation for our `FromEnvVar` impl.
 /// impl FromEnvVar for MyCoolType {
-///     type Error = <MyCoolType as FromStr>::Err;
-///
-///     fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>>
+///     fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr>
 ///     {
-///         String::from_env_var(env_var).unwrap().parse().map_err(Into::into)
+///         Ok(String::from_env_var(env_var)?.parse().unwrap())
 ///     }
 /// }
 /// ```
 pub trait FromEnvVar: core::fmt::Debug + Sized + 'static {
-    /// Error type produced when parsing the primitive.
-    type Error: core::error::Error + Clone + PartialEq + Eq;
-
     /// Load the primitive from the environment at the given variable.
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>>;
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr>;
 
     /// Load the primitive from the environment at the given variable. If the
     /// variable is unset or empty, return the default value.
     ///
     /// This function will return an error if the environment variable is set
     /// but cannot be parsed.
-    fn from_env_var_or(env_var: &str, default: Self) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var_or(env_var: &str, default: Self) -> Result<Self, FromEnvErr> {
         match Self::from_env_var(env_var) {
             Ok(v) => Ok(v),
             Err(FromEnvErr::Empty(_)) | Err(FromEnvErr::EnvError(_, _)) => Ok(default),
@@ -482,7 +424,7 @@ pub trait FromEnvVar: core::fmt::Debug + Sized + 'static {
     fn from_env_var_or_else(
         env_var: &str,
         default: impl FnOnce() -> Self,
-    ) -> Result<Self, FromEnvErr<Self::Error>> {
+    ) -> Result<Self, FromEnvErr> {
         match Self::from_env_var(env_var) {
             Ok(v) => Ok(v),
             Err(FromEnvErr::Empty(_)) | Err(FromEnvErr::EnvError(_, _)) => Ok(default()),
@@ -496,7 +438,7 @@ pub trait FromEnvVar: core::fmt::Debug + Sized + 'static {
     ///
     /// This function will return an error if the environment variable is set
     /// but cannot be parsed.
-    fn from_env_var_or_default(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>>
+    fn from_env_var_or_default(env_var: &str) -> Result<Self, FromEnvErr>
     where
         Self: Default,
     {
@@ -508,9 +450,7 @@ impl<T> FromEnvVar for Option<T>
 where
     T: FromEnvVar,
 {
-    type Error = T::Error;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
         match std::env::var(env_var) {
             Ok(s) if s.is_empty() => Ok(None),
             Ok(_) => T::from_env_var(env_var).map(Some),
@@ -523,9 +463,7 @@ impl<T> FromEnvVar for Box<T>
 where
     T: FromEnvVar,
 {
-    type Error = T::Error;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
         T::from_env_var(env_var).map(Box::new)
     }
 }
@@ -534,9 +472,7 @@ impl<T> FromEnvVar for std::sync::Arc<T>
 where
     T: FromEnvVar,
 {
-    type Error = T::Error;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
         T::from_env_var(env_var).map(std::sync::Arc::new)
     }
 }
@@ -544,27 +480,21 @@ where
 impl<T, U> FromEnvVar for std::borrow::Cow<'static, U>
 where
     T: FromEnvVar,
-    U: std::borrow::ToOwned<Owned = T> + core::fmt::Debug + ?Sized,
+    U: ToOwned<Owned = T> + core::fmt::Debug + ?Sized,
 {
-    type Error = T::Error;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
         T::from_env_var(env_var).map(std::borrow::Cow::Owned)
     }
 }
 
 impl FromEnvVar for String {
-    type Error = std::convert::Infallible;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
         std::env::var(env_var).map_err(|_| FromEnvErr::empty(env_var))
     }
 }
 
 impl FromEnvVar for std::time::Duration {
-    type Error = ParseIntError;
-
-    fn from_env_var(s: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(s: &str) -> Result<Self, FromEnvErr> {
         u64::from_env_var(s).map(Self::from_millis)
     }
 }
@@ -573,9 +503,7 @@ impl<T> FromEnvVar for Vec<T>
 where
     T: From<String> + core::fmt::Debug + 'static,
 {
-    type Error = Infallible;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
         let s = std::env::var(env_var).map_err(|e| FromEnvErr::env_err(env_var, e))?;
         if s.is_empty() {
             return Ok(vec![]);
@@ -591,9 +519,7 @@ macro_rules! impl_for_parseable {
     ($($t:ty),*) => {
         $(
             impl FromEnvVar for $t {
-                type Error = <$t as FromStr>::Err;
-
-                fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+                fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
                     parse_env_if_present(env_var)
                 }
             }
@@ -632,17 +558,13 @@ impl_for_parseable!(
 
 #[cfg(feature = "alloy")]
 impl<const N: usize> FromEnvVar for alloy::primitives::FixedBytes<N> {
-    type Error = <alloy::primitives::FixedBytes<N> as FromStr>::Err;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
         parse_env_if_present(env_var)
     }
 }
 
 impl FromEnvVar for bool {
-    type Error = std::str::ParseBoolError;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
         let s: String = std::env::var(env_var).map_err(|e| FromEnvErr::env_err(env_var, e))?;
         Ok(!s.is_empty())
     }
@@ -660,19 +582,15 @@ impl From<ParseLevelError> for LevelParseError {
 }
 
 impl FromEnvVar for tracing::Level {
-    type Error = LevelParseError;
-
-    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env_var(env_var: &str) -> Result<Self, FromEnvErr> {
         let s: String = std::env::var(env_var).map_err(|e| FromEnvErr::env_err(env_var, e))?;
         s.parse()
-            .map_err(Into::into)
-            .map_err(FromEnvErr::parse_error)
+            .map_err(LevelParseError::from)
+            .map_err(|error| FromEnvErr::parse_error(env_var, error))
     }
 }
 
 impl FromEnv for SignetSystemConstants {
-    type Error = ParseChainError;
-
     fn inventory() -> Vec<&'static EnvItemInfo> {
         vec![&EnvItemInfo {
             var: "CHAIN_NAME",
@@ -682,7 +600,7 @@ impl FromEnv for SignetSystemConstants {
         }]
     }
 
-    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env() -> Result<Self, FromEnvErr> {
         SignetSystemConstants::from_env_var("CHAIN_NAME")
     }
 }
@@ -700,15 +618,6 @@ mod test {
         std::env::set_var(env, val.to_string());
     }
 
-    fn load_expect_err<T>(env: &str, err: FromEnvErr<T::Error>)
-    where
-        T: FromEnvVar,
-        T::Error: PartialEq,
-    {
-        let res = T::from_env_var(env).unwrap_err();
-        assert_eq!(res, err);
-    }
-
     fn test<T>(env: &str, val: T)
     where
         T: ToString + FromEnvVar + PartialEq + std::fmt::Debug,
@@ -717,16 +626,6 @@ mod test {
 
         let res = T::from_env_var(env).unwrap();
         assert_eq!(res, val);
-    }
-
-    fn test_expect_err<T, U>(env: &str, value: U, err: FromEnvErr<T::Error>)
-    where
-        T: FromEnvVar,
-        U: ToString,
-        T::Error: PartialEq,
-    {
-        set(env, &value);
-        load_expect_err::<T>(env, err);
     }
 
     #[test]
@@ -762,13 +661,13 @@ mod test {
 
     #[test]
     fn test_a_few_errors() {
-        test_expect_err::<u8, _>(
-            "U8_",
-            30000u16,
-            FromEnvErr::parse_error("30000".parse::<u8>().unwrap_err()),
-        );
+        set("U8_", &30000u16);
+        let err = u8::from_env_var("U8_").unwrap_err();
+        assert!(matches!(err, FromEnvErr::ParseError(ref var, _) if var == "U8_"));
 
-        test_expect_err::<u8, _>("U8_", "", FromEnvErr::empty("U8_"));
+        set("U8_", &"");
+        let err = u8::from_env_var("U8_").unwrap_err();
+        assert!(matches!(err, FromEnvErr::Empty(ref var) if var == "U8_"));
     }
 
     #[test]

@@ -2,7 +2,7 @@
 name = "init4-from-env-derive"
 
 description = "A derive macro for `init4_bin_base::FromEnv`"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.81"
 authors = ["init4", "James Prestwich"]
@@ -11,7 +11,6 @@ homepage = "https://github.com/init4tech/bin-base"
 repository = "https://github.com/init4tech/bin-base"
 
 [dependencies]
-heck = "0.5.0"
 proc-macro2 = "1.0.95"
 quote = "1.0.40"
 syn = { version = "2.0.100", features = ["full", "parsing"] }
@@ -20,4 +19,4 @@ syn = { version = "2.0.100", features = ["full", "parsing"] }
 proc-macro = true
 
 [dev-dependencies]
-init4-bin-base = "0.9"
+init4-bin-base = { path = ".." }

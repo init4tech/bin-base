@@ -1,7 +1,7 @@
 use crate::utils::from_env::{EnvItemInfo, FromEnv, FromEnvErr, FromEnvVar};
 #[allow(deprecated)]
 use signet_constants::{mainnet, parmigiana, pecorino, test_utils, KnownChains};
-use std::{num::ParseIntError, str::FromStr};
+use std::str::FromStr;
 
 /// A slot calculator, which can calculate slot numbers, windows, and offsets
 /// for a given chain.
@@ -293,8 +293,6 @@ impl SlotCalculator {
 }
 
 impl FromEnv for SlotCalculator {
-    type Error = ParseIntError;
-
     fn inventory() -> Vec<&'static EnvItemInfo> {
         vec![
             &EnvItemInfo {
@@ -320,7 +318,7 @@ impl FromEnv for SlotCalculator {
         ]
     }
 
-    fn from_env() -> Result<Self, FromEnvErr<Self::Error>> {
+    fn from_env() -> Result<Self, FromEnvErr> {
         if let Ok(slot_calculator) = SlotCalculator::from_env_var("CHAIN_NAME") {
             return Ok(slot_calculator);
         }
