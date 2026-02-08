@@ -10,13 +10,13 @@ use tokio::sync::watch;
 use tracing::instrument;
 
 /// Result type for [`BuilderTxCache`] operations.
-pub type Result<T> = std::result::Result<T, BuilderTxCacheError>;
+pub type Result<T> = core::result::Result<T, BuilderTxCacheError>;
 
 /// Errors that can occur when using the [`BuilderTxCache`] client.
 #[derive(Debug, Error)]
 pub enum BuilderTxCacheError {
-    /// Failed to retrieve the authentication token.
-    #[error("failed to retrieve auth token: {0}")]
+    /// The background auth task has stopped, indicating the token sender was dropped.
+    #[error("auth token unavailable (background auth task stopped): {0}")]
     TokenRetrieval(#[from] watch::error::RecvError),
 
     /// An error occurred during a TxCache operation.
@@ -26,7 +26,7 @@ pub enum BuilderTxCacheError {
 
 impl From<reqwest::Error> for BuilderTxCacheError {
     fn from(err: reqwest::Error) -> Self {
-        BuilderTxCacheError::TxCache(TxCacheError::Reqwest(err))
+        BuilderTxCacheError::TxCache(TxCacheError::from(err))
     }
 }
 
