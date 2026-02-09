@@ -86,7 +86,7 @@ impl PylonClient {
         &self.token
     }
 
-    /// Post a blob transaction sidecar to the Pylon server.
+    /// Post a blob transaction to the Pylon server.
     ///
     /// The transaction must be an EIP-4844 blob transaction with an EIP-7594
     /// sidecar attached. Non-EIP-7594 sidecars will be rejected.
@@ -106,7 +106,7 @@ impl PylonClient {
     ///
     /// [`Bytes`]: https://docs.rs/alloy/latest/alloy/primitives/struct.Bytes.html
     #[instrument(skip_all)]
-    pub async fn post_sidecar(&self, raw_tx: alloy::primitives::Bytes) -> Result<(), PylonError> {
+    pub async fn post_blob_tx(&self, raw_tx: alloy::primitives::Bytes) -> Result<(), PylonError> {
         let url = self.url.join("v2/sidecar")?;
         let secret = self
             .token
