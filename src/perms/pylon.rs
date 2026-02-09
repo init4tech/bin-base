@@ -1,5 +1,5 @@
 use crate::perms::oauth::SharedToken;
-use alloy::{consensus::BlobTransactionSidecarEip7594, primitives::B256};
+use alloy::eips::eip2718::Eip2718Error;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -10,7 +10,7 @@ pub enum PylonError {
     #[error("invalid sidecar: {0}")]
     InvalidSidecar(String),
 
-    /// Sidecar already exists for this transaction hash (409).
+    /// Sidecar already exists for this transaction (409).
     #[error("sidecar already exists")]
     SidecarAlreadyExists,
 
@@ -29,6 +29,10 @@ pub enum PylonError {
     /// Missing auth token.
     #[error("missing auth token")]
     MissingAuthToken(tokio::sync::watch::error::RecvError),
+
+    /// Invalid transaction bytes.
+    #[error("invalid transaction bytes: {0}")]
+    InvalidTransactionBytes(Eip2718Error),
 }
 
 /// A client for interacting with the Pylon blob server API.
@@ -82,33 +86,28 @@ impl PylonClient {
         &self.token
     }
 
-    /// Post a blob transaction sidecar to the Pylon server.
+    /// Post a blob transaction to the Pylon server.
     ///
-    /// If the sidecar is in EIP-4844 format, it will be converted to EIP-7594
-    /// format before posting.
+    /// The transaction must be an EIP-4844 blob transaction with an EIP-7594
+    /// sidecar attached. Non-EIP-7594 sidecars will be rejected.
     ///
     /// # Arguments
     ///
-    /// * `tx_hash` - The transaction hash ([`B256`]).
-    /// * `sidecar` - The blob transaction sidecar ([`BlobTransactionSidecarEip7594`]).
+    /// * `tx` - The raw EIP-2718 encoded transaction bytes ([`Bytes`]).
     ///
     /// # Errors
     ///
     /// Returns an error if:
-    /// - The sidecar format is invalid ([`PylonError::InvalidSidecar`])
+    /// - The transaction bytes are invalid ([`PylonError::InvalidTransactionBytes`])
+    /// - The sidecar is missing or not in EIP-7594 format ([`PylonError::InvalidSidecar`])
     /// - A sidecar already exists for this transaction hash ([`PylonError::SidecarAlreadyExists`])
     /// - An internal server error occurred ([`PylonError::InternalError`])
     /// - A network error occurred ([`PylonError::Request`])
     ///
-    /// [`B256`]: <https://docs.rs/alloy/latest/alloy/primitives/aliases/type.B256.html>
-    /// [`BlobTransactionSidecarEip7594`]: <https://docs.rs/alloy/latest/alloy/consensus/struct.BlobTransactionSidecarEip7594.html>
+    /// [`Bytes`]: https://docs.rs/alloy/latest/alloy/primitives/struct.Bytes.html
     #[instrument(skip_all)]
-    pub async fn post_sidecar(
-        &self,
-        tx_hash: B256,
-        sidecar: BlobTransactionSidecarEip7594,
-    ) -> Result<(), PylonError> {
-        let url = self.url.join(&format!("v2/sidecar/{tx_hash}"))?;
+    pub async fn post_blob_tx(&self, raw_tx: alloy::primitives::Bytes) -> Result<(), PylonError> {
+        let url = self.url.join("v2/sidecar")?;
         let secret = self
             .token
             .secret()
@@ -118,13 +117,14 @@ impl PylonClient {
         let response = self
             .client
             .post(url)
-            .json(&sidecar)
+            .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
+            .body(raw_tx.0)
             .bearer_auth(secret)
             .send()
             .await?;
 
         match response.status() {
-            reqwest::StatusCode::OK => Ok(()),
+            reqwest::StatusCode::CREATED => Ok(()),
             reqwest::StatusCode::BAD_REQUEST => {
                 let text = response.text().await.unwrap_or_default();
                 Err(PylonError::InvalidSidecar(text))
