@@ -1,4 +1,5 @@
 use crate::utils::from_env::{FromEnv, FromEnvErr, FromEnvVar};
+use core::net::SocketAddr;
 use metrics_exporter_prometheus::PrometheusBuilder;
 
 use super::from_env::EnvItemInfo;
@@ -72,8 +73,14 @@ impl FromEnv for MetricsConfig {
 pub fn init_metrics() {
     let cfg = MetricsConfig::from_env().unwrap();
 
+    let address = SocketAddr::from(([0, 0, 0, 0], cfg.port));
+
     PrometheusBuilder::new()
-        .with_http_listener(([0, 0, 0, 0], cfg.port))
+        .with_http_listener(address)
         .install()
-        .expect("failed to install prometheus exporter");
+        .unwrap_or_else(|error| {
+            panic!(
+                "failed to install prometheus exporter on {address} (configure with {METRICS_PORT} env var): {error}",
+            )
+        });
 }
