@@ -65,8 +65,6 @@ impl Drop for OtelGuard {
 ///   will return [`None`].
 /// - OTEL_LEVEL - optional. Specifies the minimum [`tracing::Level`] to
 ///   export in the [`EnvFilter`] format. Defaults to [`tracing::Level::DEBUG`].
-/// - OTEL_TIMEOUT - optional. Specifies the timeout for the exporter in
-///   **milliseconds**. Defaults to 1000ms, which is equivalent to 1 second.
 /// - OTEL_ENVIRONMENT_NAME - optional. Value for the `deployment.environment.
 ///   name` resource key according to the OTEL conventions.
 #[derive(Debug, Clone)]
@@ -79,7 +77,7 @@ pub struct OtelConfig {
     /// Defaults to DEBUG.
     pub level: EnvFilter,
 
-    /// OTEL convenition `deployment.environment.name`
+    /// OTEL convention `deployment.environment.name`
     pub environment: String,
 }
 
@@ -139,8 +137,6 @@ impl OtelConfig {
     ///   OTLP exporting will be disabled.
     /// - `OTEL_LEVEL` - optional. Specifies the minimum [`tracing::Level`] to
     ///   export. Defaults to [`tracing::Level::DEBUG`].
-    /// - `OTEL_TIMEOUT` - optional. Specifies the timeout for the exporter in
-    ///   **milliseconds**. Defaults to 1000ms, which is equivalent to 1 second.
     /// - `OTEL_ENVIRONMENT_NAME` - optional. Value for the
     ///   `deployment.environment.name` resource key according to the OTEL
     ///   conventions. Defaults to `"unknown"`.
