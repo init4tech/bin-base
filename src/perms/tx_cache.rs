@@ -2,7 +2,7 @@ use crate::perms::oauth::SharedToken;
 use serde::de::DeserializeOwned;
 use signet_tx_cache::{
     error::TxCacheError,
-    types::{BundleKey, CacheObject, TxCacheBundle, TxCacheBundleResponse, TxCacheBundlesResponse},
+    types::{BundleKey, BundleList, CacheObject, CacheResponse, CachedBundle},
     TxCache,
 };
 use thiserror::Error;
@@ -139,8 +139,8 @@ impl BuilderTxCache {
     /// Returns an error if the request fails or the builder is not permissioned
     /// for the current slot.
     #[instrument(skip_all)]
-    pub async fn get_bundles(&self, query: Option<BundleKey>) -> Result<TxCacheBundlesResponse> {
-        self.get_inner_with_token::<TxCacheBundlesResponse>(BUNDLES, query)
+    pub async fn get_bundles(&self, query: Option<BundleKey>) -> Result<CacheResponse<BundleList>> {
+        self.get_inner_with_token::<CacheResponse<BundleList>>(BUNDLES, query)
             .await
     }
 
@@ -151,10 +151,20 @@ impl BuilderTxCache {
     /// Get a bundle from the cache by its UUID. For convenience, this method
     /// takes a string reference, which is expected to be a valid UUID.
     #[instrument(skip_all)]
-    pub async fn get_bundle(&self, bundle_id: &str) -> Result<TxCacheBundle> {
-        let url = self.get_bundle_url_path(bundle_id);
-        self.get_inner_with_token::<TxCacheBundleResponse>(&url, None)
+    pub async fn get_bundle(&self, bundle_id: &str) -> Result<CachedBundle> {
+        let url_path = self.get_bundle_url_path(bundle_id);
+        let url = self.tx_cache.url().join(&url_path)?;
+        let secret = self.token.secret().await?;
+
+        self.tx_cache
+            .client()
+            .get(url)
+            .bearer_auth(secret)
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<CachedBundle>()
             .await
-            .map(|response| response.bundle)
+            .map_err(Into::into)
     }
 }
