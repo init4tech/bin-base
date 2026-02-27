@@ -7,11 +7,14 @@ use tracing_subscriber::{filter::EnvFilter, layer::SubscriberExt, util::Subscrib
 const TRACING_LOG_JSON: &str = "TRACING_LOG_JSON";
 
 /// Install a format layer based on the `TRACING_LOG_JSON` environment
-/// variable, and then install the registr
-///
+/// variable, and then install the register
 macro_rules! install_fmt {
     (json @ $registry:ident, $filter:ident) => {{
-        let fmt = tracing_subscriber::fmt::layer().json().with_span_list(true).with_filter($filter);
+        let fmt = tracing_subscriber::fmt::layer()
+            .json()
+            .with_span_list(true)
+            .with_current_span(false)
+            .with_filter($filter);
         $registry.with(fmt).init();
     }};
     (log @ $registry:ident, $filter:ident) => {{
