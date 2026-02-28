@@ -1,8 +1,12 @@
+use core::{
+    fmt::{self, Display, Formatter},
+    str::FromStr,
+};
 use signet_constants::{
     HostConstants, RollupConstants, SignetConstants, SignetEnvironmentConstants,
     SignetSystemConstants,
 };
-use std::{env::VarError, str::FromStr};
+use std::env::VarError;
 use tracing_core::metadata::ParseLevelError;
 
 use crate::utils::calc::SlotCalculator;
@@ -249,7 +253,7 @@ where
 /// ensure that env-related errors (e.g. missing env vars) are not lost in the
 /// recursive structure of parsing errors. Environment errors are always at the
 /// top level, and should never be nested.
-pub trait FromEnv: core::fmt::Debug + Sized + 'static {
+pub trait FromEnv: fmt::Debug + Sized + 'static {
     /// Get the required environment variable names for this type.
     ///
     /// ## Note
@@ -266,8 +270,10 @@ pub trait FromEnv: core::fmt::Debug + Sized + 'static {
     fn check_inventory() -> Result<(), Vec<&'static EnvItemInfo>> {
         let mut missing = Vec::new();
         for var in Self::inventory() {
-            if std::env::var(var.var).is_err() && !var.optional {
-                missing.push(var);
+            match std::env::var(var.var) {
+                Ok(s) if s.is_empty() && !var.optional => missing.push(var),
+                Err(VarError::NotPresent) if !var.optional => missing.push(var),
+                _ => {}
             }
         }
         if missing.is_empty() {
@@ -454,7 +460,8 @@ where
         match std::env::var(env_var) {
             Ok(s) if s.is_empty() => Ok(None),
             Ok(_) => T::from_env_var(env_var).map(Some),
-            Err(_) => Ok(None),
+            Err(VarError::NotPresent) => Ok(None),
+            Err(error) => Err(FromEnvErr::parse_error(env_var, error)),
         }
     }
 }
@@ -513,6 +520,118 @@ where
             .map(Into::into)
             .collect::<Vec<_>>())
     }
+}
+
+/// Generate an `Optional{Name}WithDefault` newtype that wraps `$inner` with a const generic
+/// default. When the env var is missing or empty, the default is used. The `$parse` closure
+/// controls how a non-empty string is converted to the inner type.
+macro_rules! optional_with_default {
+    (
+        $(#[$meta:meta])*
+        $name:ident, $inner:ty, |$var:ident, $s:ident| $parse:expr
+    ) => {
+        $(#[$meta])*
+        #[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Copy, Debug)]
+        pub struct $name<const DEFAULT: $inner>($inner);
+
+        impl<const DEFAULT: $inner> $name<DEFAULT> {
+            /// Extract the inner value.
+            pub const fn into_inner(self) -> $inner {
+                self.0
+            }
+        }
+
+        impl<const DEFAULT: $inner> Display for $name<DEFAULT> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                <$inner as Display>::fmt(&self.0, f)
+            }
+        }
+
+        impl<const DEFAULT: $inner> Default for $name<DEFAULT> {
+            fn default() -> Self {
+                Self(DEFAULT)
+            }
+        }
+
+        impl<const DEFAULT: $inner> FromEnvVar for $name<DEFAULT> {
+            fn from_env_var($var: &str) -> Result<Self, FromEnvErr> {
+                match std::env::var($var) {
+                    Ok($s) if $s.is_empty() => Ok(Self(DEFAULT)),
+                    Ok($s) => $parse.map(Self),
+                    Err(VarError::NotPresent) => Ok(Self(DEFAULT)),
+                    Err(error) => Err(FromEnvErr::parse_error($var, error)),
+                }
+            }
+        }
+    };
+}
+
+optional_with_default! {
+    /// An optional boolean with a const default, for use in config structs.
+    /// A non-empty value is treated as `true`; missing or empty falls back to the default.
+    OptionalBoolWithDefault, bool, |env_var, _s| Ok(true)
+}
+
+/// Helper for numeric `optional_with_default!` invocations: parse a non-empty string.
+fn parse_or_err<T: FromStr>(env_var: &str, s: &str) -> Result<T, FromEnvErr>
+where
+    T::Err: core::error::Error + Send + Sync + 'static,
+{
+    s.parse::<T>()
+        .map_err(|error| FromEnvErr::parse_error(env_var, error))
+}
+
+optional_with_default! {
+    /// An optional `u8` with a const default, for use in config structs.
+    OptionalU8WithDefault, u8, |env_var, s| parse_or_err(env_var, &s)
+}
+optional_with_default! {
+    /// An optional `u16` with a const default, for use in config structs.
+    OptionalU16WithDefault, u16, |env_var, s| parse_or_err(env_var, &s)
+}
+optional_with_default! {
+    /// An optional `u32` with a const default, for use in config structs.
+    OptionalU32WithDefault, u32, |env_var, s| parse_or_err(env_var, &s)
+}
+optional_with_default! {
+    /// An optional `u64` with a const default, for use in config structs.
+    OptionalU64WithDefault, u64, |env_var, s| parse_or_err(env_var, &s)
+}
+optional_with_default! {
+    /// An optional `u128` with a const default, for use in config structs.
+    OptionalU128WithDefault, u128, |env_var, s| parse_or_err(env_var, &s)
+}
+optional_with_default! {
+    /// An optional `usize` with a const default, for use in config structs.
+    OptionalUsizeWithDefault, usize, |env_var, s| parse_or_err(env_var, &s)
+}
+optional_with_default! {
+    /// An optional `i8` with a const default, for use in config structs.
+    OptionalI8WithDefault, i8, |env_var, s| parse_or_err(env_var, &s)
+}
+optional_with_default! {
+    /// An optional `i16` with a const default, for use in config structs.
+    OptionalI16WithDefault, i16, |env_var, s| parse_or_err(env_var, &s)
+}
+optional_with_default! {
+    /// An optional `i32` with a const default, for use in config structs.
+    OptionalI32WithDefault, i32, |env_var, s| parse_or_err(env_var, &s)
+}
+optional_with_default! {
+    /// An optional `i64` with a const default, for use in config structs.
+    OptionalI64WithDefault, i64, |env_var, s| parse_or_err(env_var, &s)
+}
+optional_with_default! {
+    /// An optional `i128` with a const default, for use in config structs.
+    OptionalI128WithDefault, i128, |env_var, s| parse_or_err(env_var, &s)
+}
+optional_with_default! {
+    /// An optional `isize` with a const default, for use in config structs.
+    OptionalIsizeWithDefault, isize, |env_var, s| parse_or_err(env_var, &s)
+}
+optional_with_default! {
+    /// An optional `char` with a const default, for use in config structs.
+    OptionalCharWithDefault, char, |env_var, s| parse_or_err(env_var, &s)
 }
 
 macro_rules! impl_for_parseable {
@@ -594,9 +713,8 @@ impl FromEnv for SignetSystemConstants {
     fn inventory() -> Vec<&'static EnvItemInfo> {
         vec![&EnvItemInfo {
             var: "CHAIN_NAME",
-            description:
-                "The name of the chain. If set, the other environment variables are ignored.",
-            optional: true,
+            description: "The name of the chain",
+            optional: false,
         }]
     }
 

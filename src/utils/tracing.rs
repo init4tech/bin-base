@@ -1,15 +1,40 @@
 use crate::utils::{
-    from_env::FromEnvVar,
+    from_env::{FromEnv, OptionalBoolWithDefault},
     otlp::{OtelConfig, OtelGuard},
 };
 use tracing_subscriber::{filter::EnvFilter, layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
-const TRACING_LOG_JSON: &str = "TRACING_LOG_JSON";
-const TRACING_WITH_FILE_AND_LINE_NO: &str = "TRACING_WITH_FILE_AND_LINE_NO";
+/// Tracing format configuration.
+///
+/// Uses the following environment variables:
+/// - `TRACING_LOG_JSON` - optional. If `true`, enables JSON logging. Defaults to `false`.
+/// - `TRACING_WITH_FILE_AND_LINE_NO` - optional. If `true`, includes file names and line numbers
+///   in tracing output. Defaults to `false`.
+#[derive(Debug, Clone, Default, FromEnv)]
+#[non_exhaustive]
+#[from_env(crate)]
+pub struct TracingConfig {
+    /// Whether to log in JSON or not.
+    #[from_env(
+        var = "TRACING_LOG_JSON",
+        desc = "If non-empty, log in JSON format [default: disabled]",
+        optional
+    )]
+    pub log_json: OptionalBoolWithDefault<false>,
 
-/// Install a format layer based on the `TRACING_LOG_JSON` and
-/// `TRACING_WITH_FILE_AND_LINE_NO` environment variables, and then install
-/// the registry.
+    /// Whether to include file names and line numbers in log output.
+    #[from_env(
+        var = "TRACING_WITH_FILE_AND_LINE_NO",
+        desc = "If non-empty, include file names and line numbers in tracing output [default: disabled]",
+        optional
+    )]
+    pub with_file_and_line_number: OptionalBoolWithDefault<false>,
+
+    /// OTEL configuration.
+    pub otel_config: Option<OtelConfig>,
+}
+
+/// Install a format layer and the registry.
 macro_rules! install_fmt {
     (json @ $registry:ident, $filter:ident, $file_line:expr) => {{
         let fmt = tracing_subscriber::fmt::layer()
@@ -28,10 +53,9 @@ macro_rules! install_fmt {
             .with_filter($filter);
         $registry.with(fmt).init();
     }};
-    ($registry:ident, $filter:ident) => {{
-        let json = bool::from_env_var(TRACING_LOG_JSON).unwrap_or(false);
-        let file_line = bool::from_env_var(TRACING_WITH_FILE_AND_LINE_NO).unwrap_or(false);
-        if json {
+    ($registry:ident, $filter:ident, $cfg:expr) => {{
+        let file_line = $cfg.with_file_and_line_number.into_inner();
+        if $cfg.log_json.into_inner() {
             install_fmt!(json @ $registry, $filter, file_line);
         } else {
             install_fmt!(log @ $registry, $filter, file_line);
@@ -46,12 +70,7 @@ macro_rules! install_fmt {
 /// environment variables are set, it will initialize the OTEL provider
 /// with the specified configuration, as well as the `fmt` layer.
 ///
-/// ## Env Reads
-///
-/// - `TRACING_LOG_JSON` - If set to a non-empty value, will enable JSON logging.
-/// - `TRACING_WITH_FILE_AND_LINE_NO` - If set to a non-empty value, will include file names and
-///   line numbers in tracing output.
-/// - See [`OtelConfig`] documentation for env var information.
+/// See [`TracingConfig`] and [`OtelConfig`] for env var information.
 ///
 /// ## Panics
 ///
@@ -59,16 +78,21 @@ macro_rules! install_fmt {
 ///
 /// [`OtelConfig`]: crate::utils::otlp::OtelConfig
 pub fn init_tracing() -> Option<OtelGuard> {
+    let tracing_config = TracingConfig::from_env().unwrap();
+    init_tracing_with_config(tracing_config)
+}
+
+pub(crate) fn init_tracing_with_config(tracing_config: TracingConfig) -> Option<OtelGuard> {
     let registry = tracing_subscriber::registry();
     let filter = EnvFilter::from_default_env();
 
-    if let Some(cfg) = OtelConfig::load() {
-        let (guard, layer) = cfg.into_guard_and_layer();
+    if let Some(otel_config) = tracing_config.otel_config {
+        let (guard, layer) = otel_config.into_guard_and_layer();
         let registry = registry.with(layer);
-        install_fmt!(registry, filter);
+        install_fmt!(registry, filter, tracing_config);
         Some(guard)
     } else {
-        install_fmt!(registry, filter);
+        install_fmt!(registry, filter, tracing_config);
         tracing::debug!(
             "No OTEL config found or error while loading otel config, using default tracing"
         );

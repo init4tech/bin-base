@@ -23,11 +23,19 @@
 //!      http://localhost:8080/rpc
 //! ```
 use ajj::Router;
-use init4_bin_base::init4;
+use eyre::WrapErr;
+use init4_bin_base::{
+    init,
+    utils::{from_env::FromEnv, metrics::MetricsConfig, tracing::TracingConfig},
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let _guard = init4();
+    let tracing_config =
+        TracingConfig::from_env().wrap_err("failed to get tracing config from environment")?;
+    let metrics_config =
+        MetricsConfig::from_env().wrap_err("failed to get metrics config from environment")?;
+    let _guard = init(tracing_config, metrics_config);
 
     let router = Router::<()>::new()
         .route("helloWorld", || async {

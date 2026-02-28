@@ -12,6 +12,8 @@
 #![deny(unused_must_use, rust_2018_idioms)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
+use crate::utils::{metrics::MetricsConfig, otlp::OtelGuard, tracing::TracingConfig};
+
 #[cfg(feature = "perms")]
 /// Permissioning and authorization utilities for Signet builders.
 pub mod perms;
@@ -85,9 +87,42 @@ pub mod deps {
 ///
 /// [`init_tracing`]: utils::tracing::init_tracing
 /// [`init_metrics`]: utils::metrics::init_metrics
-pub fn init4() -> Option<utils::otlp::OtelGuard> {
+#[deprecated(since = "0.18.0-rc.11", note = "use `init` instead")]
+pub fn init4() -> Option<OtelGuard> {
     let guard = utils::tracing::init_tracing();
     utils::metrics::init_metrics();
+
+    // This will install the AWS-LC-Rust TLS provider for rustls, if no other
+    // provider has been installed yet
+    #[cfg(feature = "rustls")]
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
+    guard
+}
+
+/// Init metrics and tracing, including OTLP if enabled.
+///
+/// This will perform the following:
+/// - Read environment configuration for tracing
+/// - Determine whether to enable OTLP
+/// - Install a global tracing subscriber, using the OTLP provider if enabled
+/// - Read environment configuration for metrics
+/// - Install a global metrics recorder and serve it over HTTP on 0.0.0.0
+///
+/// See [`init_tracing`] and [`init_metrics`] for more
+/// details on specific actions taken and env vars read.
+///
+/// # Returns
+///
+/// The OpenTelemetry guard, if OTLP is enabled. This guard should be kept alive
+/// for the lifetime of the program to ensure the exporter continues to send
+/// data to the remote API.
+///
+/// [`init_tracing`]: utils::tracing::init_tracing
+/// [`init_metrics`]: utils::metrics::init_metrics
+pub fn init(tracing_config: TracingConfig, metrics_config: MetricsConfig) -> Option<OtelGuard> {
+    let guard = utils::tracing::init_tracing_with_config(tracing_config);
+    utils::metrics::init_metrics_with_config(metrics_config);
 
     // This will install the AWS-LC-Rust TLS provider for rustls, if no other
     // provider has been installed yet
