@@ -12,7 +12,12 @@
 #![deny(unused_must_use, rust_2018_idioms)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-use crate::utils::{metrics::MetricsConfig, otlp::OtelGuard, tracing::TracingConfig};
+use crate::utils::{
+    from_env::{FromEnv, FromEnvErr},
+    metrics::MetricsConfig,
+    otlp::OtelGuard,
+    tracing::TracingConfig,
+};
 
 #[cfg(feature = "perms")]
 /// Permissioning and authorization utilities for Signet builders.
@@ -100,34 +105,71 @@ pub fn init4() -> Option<OtelGuard> {
     guard
 }
 
-/// Init metrics and tracing, including OTLP if enabled.
+/// Trait for config types that can be used with [`init`].
+///
+/// Implementors must provide access to [`TracingConfig`] and [`MetricsConfig`],
+/// and must be loadable from the environment via [`FromEnv`].
+///
+/// # Example
+///
+/// ```ignore
+/// #[derive(Debug, FromEnv)]
+/// pub struct MyConfig {
+///     pub tracing: TracingConfig,
+///     pub metrics: MetricsConfig,
+///     #[from_env(var = "MY_THING", desc = "some app-specific value")]
+///     pub my_thing: String,
+/// }
+///
+/// impl Init4Config for MyConfig {
+///     fn tracing(&self) -> &TracingConfig { &self.tracing }
+///     fn metrics(&self) -> &MetricsConfig { &self.metrics }
+/// }
+/// ```
+pub trait Init4Config: FromEnv {
+    /// Get the tracing configuration.
+    fn tracing(&self) -> &TracingConfig;
+    /// Get the metrics configuration.
+    fn metrics(&self) -> &MetricsConfig;
+}
+
+/// The result of [`init`]: the loaded config and an optional OTLP guard.
+///
+/// The [`OtelGuard`] (if present) must be kept alive for the lifetime of the
+/// program to ensure the OTLP exporter continues to send data.
+#[derive(Debug)]
+pub struct ConfigAndGuard<T> {
+    /// The loaded configuration.
+    pub config: T,
+    /// The OTLP guard, if OTLP was enabled.
+    pub guard: Option<OtelGuard>,
+}
+
+/// Load config from the environment and initialize metrics and tracing.
 ///
 /// This will perform the following:
-/// - Read environment configuration for tracing
+/// - Load `T` from environment variables via [`FromEnv`]
+/// - Read tracing configuration from the loaded config
 /// - Determine whether to enable OTLP
 /// - Install a global tracing subscriber, using the OTLP provider if enabled
-/// - Read environment configuration for metrics
+/// - Read metrics configuration from the loaded config
 /// - Install a global metrics recorder and serve it over HTTP on 0.0.0.0
 ///
 /// See [`init_tracing`] and [`init_metrics`] for more
 /// details on specific actions taken and env vars read.
 ///
-/// # Returns
-///
-/// The OpenTelemetry guard, if OTLP is enabled. This guard should be kept alive
-/// for the lifetime of the program to ensure the exporter continues to send
-/// data to the remote API.
-///
 /// [`init_tracing`]: utils::tracing::init_tracing
 /// [`init_metrics`]: utils::metrics::init_metrics
-pub fn init(tracing_config: TracingConfig, metrics_config: MetricsConfig) -> Option<OtelGuard> {
-    let guard = utils::tracing::init_tracing_with_config(tracing_config);
-    utils::metrics::init_metrics_with_config(metrics_config);
+pub fn init<T: Init4Config>() -> Result<ConfigAndGuard<T>, FromEnvErr> {
+    let config = T::from_env()?;
+
+    let guard = utils::tracing::init_tracing_with_config(config.tracing().clone());
+    utils::metrics::init_metrics_with_config(*config.metrics());
 
     // This will install the AWS-LC-Rust TLS provider for rustls, if no other
     // provider has been installed yet
     #[cfg(feature = "rustls")]
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
 
-    guard
+    Ok(ConfigAndGuard { config, guard })
 }

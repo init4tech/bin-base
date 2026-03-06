@@ -10,13 +10,28 @@
 use eyre::WrapErr;
 use init4_bin_base::{
     deps::tracing::{info, info_span},
-    init,
     utils::{from_env::FromEnv, metrics::MetricsConfig, tracing::TracingConfig},
+    Init4Config,
 };
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+
+#[derive(Debug, FromEnv)]
+struct Config {
+    tracing: TracingConfig,
+    metrics: MetricsConfig,
+}
+
+impl Init4Config for Config {
+    fn tracing(&self) -> &TracingConfig {
+        &self.tracing
+    }
+    fn metrics(&self) -> &MetricsConfig {
+        &self.metrics
+    }
+}
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -26,11 +41,7 @@ async fn main() -> eyre::Result<()> {
     signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term))
         .wrap_err("failed to register SIGINT hook")?;
 
-    let tracing_config =
-        TracingConfig::from_env().wrap_err("failed to get tracing config from environment")?;
-    let metrics_config =
-        MetricsConfig::from_env().wrap_err("failed to get metrics config from environment")?;
-    let _guard = init(tracing_config, metrics_config);
+    let _config_and_guard = init4_bin_base::init::<Config>()?;
     let mut counter = 0;
     let _outer = info_span!("outer span").entered();
 
