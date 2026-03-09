@@ -3,7 +3,7 @@ name = "init4-bin-base"
 
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
-version = "0.18.0-rc.10"
+version = "0.18.0-rc.11"
 edition = "2021"
 rust-version = "1.85"
 authors = ["init4", "James Prestwich", "evalir"]
@@ -56,6 +56,7 @@ async-trait = { version = "0.1.80", optional = true }
 # AWS
 aws-config = { version = "1.1.7", optional = true }
 aws-sdk-kms = { version = "1.15.0", optional = true }
+futures-util = { version = "0.3", optional = true }
 reqwest = { version = "0.12.15", optional = true }
 rustls = { version = "0.23.31", optional = true }
 
@@ -71,7 +72,7 @@ tokio = { version = "1.43.0", features = ["macros"] }
 default = ["alloy", "rustls"]
 alloy = ["dep:alloy"]
 aws = ["alloy", "alloy?/signer-aws", "dep:async-trait", "dep:aws-config", "dep:aws-sdk-kms"]
-perms = ["dep:oauth2", "dep:tokio", "dep:reqwest", "dep:signet-tx-cache"]
+perms = ["dep:oauth2", "dep:tokio", "dep:reqwest", "dep:signet-tx-cache", "dep:futures-util"]
 pylon = ["perms", "alloy/kzg"]
 block_watcher = ["dep:tokio"]
 rustls = ["dep:rustls", "rustls/aws-lc-rs"]

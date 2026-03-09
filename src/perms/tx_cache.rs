@@ -1,4 +1,6 @@
 use crate::perms::oauth::SharedToken;
+use futures_util::future::Either;
+use futures_util::stream::{self, Stream, StreamExt};
 use serde::de::DeserializeOwned;
 use signet_tx_cache::{
     error::TxCacheError,
@@ -146,6 +148,24 @@ impl BuilderTxCache {
 
     fn get_bundle_url_path(&self, bundle_id: &str) -> String {
         format!("{BUNDLES}/{bundle_id}")
+    }
+
+    /// Stream all bundles from the cache, automatically paginating through
+    /// all available pages. Yields individual [`CachedBundle`] items.
+    pub fn stream_bundles(&self) -> impl Stream<Item = Result<CachedBundle>> + Send + '_ {
+        stream::unfold(Some(None), move |cursor| async move {
+            let cursor = cursor?;
+
+            match self.get_bundles(cursor).await {
+                Ok(response) => {
+                    let (inner, next_cursor) = response.into_parts();
+                    let bundles = stream::iter(inner.bundles).map(Ok);
+                    Some((Either::Left(bundles), next_cursor.map(Some)))
+                }
+                Err(error) => Some((Either::Right(stream::once(async { Err(error) })), None)),
+            }
+        })
+        .flatten()
     }
 
     /// Get a bundle from the cache by its UUID. For convenience, this method
