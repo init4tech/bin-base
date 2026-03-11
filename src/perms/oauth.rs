@@ -1,7 +1,11 @@
 //! Service responsible for authenticating with the cache with Oauth tokens.
 //! This authenticator periodically fetches a new token every set amount of seconds.
-use crate::{deps::tracing::error, utils::from_env::FromEnv};
-use core::{error::Error, fmt};
+use crate::{
+    deps::tracing::{debug, warn, Instrument},
+    utils::from_env::FromEnv,
+};
+use core::fmt;
+use eyre::eyre;
 use oauth2::{
     basic::{BasicClient, BasicTokenType},
     AccessToken, AuthUrl, ClientId, ClientSecret, EmptyExtraTokenFields, EndpointNotSet,
@@ -12,8 +16,8 @@ use std::{future::IntoFuture, pin::Pin};
 use tokio::{
     sync::watch::{self, Ref},
     task::JoinHandle,
+    time::MissedTickBehavior,
 };
-use tracing::{debug, Instrument};
 
 type Token = StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>;
 
@@ -88,10 +92,16 @@ impl Authenticator {
             .set_auth_uri(AuthUrl::from_url(config.oauth_authenticate_url.clone()))
             .set_token_uri(TokenUrl::from_url(config.oauth_token_url.clone()));
 
-        // NB: this is MANDATORY
+        // NB: redirect policy none is MANDATORY
         // https://docs.rs/oauth2/latest/oauth2/#security-warning
+        //
+        // Disable connection pooling to avoid stale connection errors.
+        // OAuth refreshes are infrequent (typically every 60s), so idle
+        // connections are almost always closed by the server or
+        // intermediary (e.g. Istio envoy) before the next request.
         let rq_client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
+            .pool_max_idle_per_host(0)
             .build()
             .unwrap();
 
@@ -159,31 +169,20 @@ impl Authenticator {
 
     /// Create a future that contains the periodic refresh loop.
     async fn task_future(self) {
-        let interval = self.config.oauth_token_refresh_interval;
+        let duration = tokio::time::Duration::from_secs(self.config.oauth_token_refresh_interval);
+        let mut interval = tokio::time::interval(duration);
+        interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
         loop {
+            interval.tick().await;
             debug!("Refreshing oauth token");
             match self.authenticate().await {
-                Ok(_) => {
-                    debug!("Successfully refreshed oauth token");
-                }
-                Err(err) => {
-                    let mut current = &err as &dyn Error;
-
-                    // This is a little hacky, but the oauth library nests
-                    // errors quite deeply, so we need to walk the source chain
-                    // to get the full picture.
-                    let mut source_chain = Vec::new();
-                    while let Some(source) = current.source() {
-                        source_chain.push(source.to_string());
-                        current = source;
-                    }
-                    let source_chain = source_chain.join("\n\n Caused by: \n");
-
-                    error!(%err, %source_chain, "Failed to refresh oauth token");
-                }
+                Ok(_) => debug!("Successfully refreshed oauth token"),
+                Err(error) => warn!(
+                    error = %format!("{:#}", eyre!(error)),
+                    "Failed to refresh oauth token"
+                ),
             };
-            let _sleep = tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
         }
     }
 

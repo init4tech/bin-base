@@ -23,11 +23,29 @@
 //!      http://localhost:8080/rpc
 //! ```
 use ajj::Router;
-use init4_bin_base::init4;
+use init4_bin_base::{
+    utils::{from_env::FromEnv, metrics::MetricsConfig, tracing::TracingConfig},
+    Init4Config,
+};
+
+#[derive(Debug, FromEnv)]
+struct Config {
+    tracing: TracingConfig,
+    metrics: MetricsConfig,
+}
+
+impl Init4Config for Config {
+    fn tracing(&self) -> &TracingConfig {
+        &self.tracing
+    }
+    fn metrics(&self) -> &MetricsConfig {
+        &self.metrics
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let _guard = init4();
+    let _config_and_guard = init4_bin_base::init::<Config>()?;
 
     let router = Router::<()>::new()
         .route("helloWorld", || async {

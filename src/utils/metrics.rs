@@ -72,8 +72,11 @@ impl FromEnv for MetricsConfig {
 /// is in use.
 pub fn init_metrics() {
     let cfg = MetricsConfig::from_env().unwrap();
+    init_metrics_with_config(cfg)
+}
 
-    let address = SocketAddr::from(([0, 0, 0, 0], cfg.port));
+pub(crate) fn init_metrics_with_config(config: MetricsConfig) {
+    let address = SocketAddr::from(([0, 0, 0, 0], config.port));
 
     PrometheusBuilder::new()
         .with_http_listener(address)

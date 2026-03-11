@@ -7,22 +7,41 @@
 //!
 //! It can be killed via sigint or sigterm
 
+use eyre::WrapErr;
 use init4_bin_base::{
     deps::tracing::{info, info_span},
-    init4,
+    utils::{from_env::FromEnv, metrics::MetricsConfig, tracing::TracingConfig},
+    Init4Config,
 };
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
 
-#[tokio::main]
-async fn main() -> Result<(), std::io::Error> {
-    let term: Arc<AtomicBool> = Default::default();
-    signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&term))?;
-    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term))?;
+#[derive(Debug, FromEnv)]
+struct Config {
+    tracing: TracingConfig,
+    metrics: MetricsConfig,
+}
 
-    let _guard = init4();
+impl Init4Config for Config {
+    fn tracing(&self) -> &TracingConfig {
+        &self.tracing
+    }
+    fn metrics(&self) -> &MetricsConfig {
+        &self.metrics
+    }
+}
+
+#[tokio::main]
+async fn main() -> eyre::Result<()> {
+    let term: Arc<AtomicBool> = Default::default();
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&term))
+        .wrap_err("failed to register SIGTERM hook")?;
+    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term))
+        .wrap_err("failed to register SIGINT hook")?;
+
+    let _config_and_guard = init4_bin_base::init::<Config>()?;
     let mut counter = 0;
     let _outer = info_span!("outer span").entered();
 
