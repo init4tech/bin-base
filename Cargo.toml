@@ -3,7 +3,7 @@ name = "init4-bin-base"
 
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
-version = "0.18.0-rc.12"
+version = "0.18.0-rc.13"
 edition = "2021"
 rust-version = "1.85"
 authors = ["init4", "James Prestwich", "evalir"]
@@ -55,8 +55,10 @@ tower = "0.5.2"
 async-trait = { version = "0.1.80", optional = true }
 
 # AWS
-aws-config = { version = "1.1.7", optional = true }
-aws-sdk-kms = { version = "1.15.0", optional = true }
+# Use `default-https-client` rather than the defaulted `rustls` feature to avoid legacy versions of
+# the `hyper` and `rustls` dependencies.
+aws-config = { version = "1.1.7", optional = true, default-features = false, features = ["default-https-client", "rt-tokio"] }
+aws-sdk-kms = { version = "1.15.0", optional = true, default-features = false, features = ["default-https-client", "rt-tokio"] }
 futures-util = { version = "0.3", optional = true }
 reqwest = { version = "0.12.15", optional = true }
 rustls = { version = "0.23.31", optional = true }
