@@ -39,6 +39,8 @@ impl From<url::ParseError> for BuilderTxCacheError {
 }
 
 const BUNDLES: &str = "bundles";
+#[cfg(feature = "sse")]
+const BUNDLES_FEED: &str = "bundles/feed";
 
 /// A client for interacting with the transaction cache, a thin wrapper around
 /// the [`TxCache`] and [`SharedToken`] that implements the necessary methods
@@ -186,5 +188,26 @@ impl BuilderTxCache {
             .json::<CachedBundle>()
             .await
             .map_err(Into::into)
+    }
+}
+
+#[cfg(feature = "sse")]
+impl BuilderTxCache {
+    /// Subscribe to real-time bundle events via SSE.
+    ///
+    /// Connects to the `/bundles/feed` endpoint with bearer auth and
+    /// returns a [`Stream`] that yields each [`CachedBundle`] as it
+    /// arrives. The stream terminates on the first error, which is
+    /// yielded as the final item.
+    #[instrument(skip_all)]
+    pub async fn subscribe_bundles(
+        &self,
+    ) -> Result<impl Stream<Item = Result<CachedBundle>> + Send> {
+        let secret = self.token.secret().await?;
+        let stream = self
+            .tx_cache
+            .subscribe_inner::<CachedBundle>(BUNDLES_FEED, Some(&secret))
+            .await?;
+        Ok(stream.map(|r| r.map_err(Into::into)))
     }
 }
