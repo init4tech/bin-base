@@ -3,7 +3,7 @@ name = "init4-bin-base"
 
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
-version = "0.18.0"
+version = "0.19.0"
 edition = "2021"
 rust-version = "1.85"
 authors = ["init4", "James Prestwich", "evalir"]
@@ -64,7 +64,7 @@ reqwest = { version = "0.12.15", optional = true }
 rustls = { version = "0.23.31", optional = true }
 
 [dev-dependencies]
-ajj = { version = "0.6.2", features = ["axum", "ws", "ipc"] }
+ajj = { version = "0.7.0", features = ["axum", "ws", "ipc"] }
 axum = "0.8.1"
 eyre = "0.6.12"
 serial_test = "3.2.0"
