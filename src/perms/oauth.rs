@@ -1,7 +1,9 @@
 //! Service responsible for authenticating with the cache with Oauth tokens.
 //! This authenticator periodically fetches a new token every set amount of seconds.
+#[cfg(doc)]
+use crate::deps::tracing::Instrument;
 use crate::{
-    deps::tracing::{debug, warn, Instrument},
+    deps::tracing::{debug, warn},
     utils::from_env::FromEnv,
 };
 use core::fmt;
@@ -69,11 +71,10 @@ impl OAuthConfig {
 /// active [`SharedToken`]s via a [`tokio::sync::watch`] channel.
 ///
 /// This task can be spawned using the [`Authenticator::spawn`] method, which
-/// will create a new tokio task that runs the refresh loop in the background,
-/// in the current [`tracing`] span. Alternately, the [`IntoFuture`]
-/// implementation can be used to create a future that runs the refresh loop,
-/// and can be isntrumented with the [`Instrument`] trait, and then spawned or
-/// awaited as desired.
+/// will create a new tokio task that runs the refresh loop in the background.
+/// Alternately, the [`IntoFuture`] implementation can be used to create a
+/// future that runs the refresh loop, and can be instrumented with the
+/// [`Instrument`] trait, and then spawned or awaited as desired.
 #[derive(Debug)]
 pub struct Authenticator {
     /// Configuration
@@ -190,7 +191,7 @@ impl Authenticator {
     /// interval may be configured via the
     /// [`OAuthConfig::oauth_token_refresh_interval`] property.
     pub fn spawn(self) -> JoinHandle<()> {
-        tokio::spawn(self.task_future().in_current_span())
+        tokio::spawn(self.task_future())
     }
 }
 
