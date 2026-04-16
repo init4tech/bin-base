@@ -723,6 +723,80 @@ impl FromEnv for SignetSystemConstants {
     }
 }
 
+#[cfg(feature = "cold-sql")]
+mod cold_sql {
+    use super::{EnvItemInfo, FromEnv, FromEnvErr, FromEnvVar};
+
+    const URL_VAR: &str = "SIGNET_COLD_SQL_URL";
+    const MAX_CONNECTIONS_VAR: &str = "SIGNET_COLD_SQL_MAX_CONNECTIONS";
+    const MIN_CONNECTIONS_VAR: &str = "SIGNET_COLD_SQL_MIN_CONNECTIONS";
+    const ACQUIRE_TIMEOUT_SECS_VAR: &str = "SIGNET_COLD_SQL_ACQUIRE_TIMEOUT_SECS";
+    const MAX_LIFETIME_SECS_VAR: &str = "SIGNET_COLD_SQL_MAX_LIFETIME_SECS";
+    const IDLE_TIMEOUT_SECS_VAR: &str = "SIGNET_COLD_SQL_IDLE_TIMEOUT_SECS";
+
+    const DEFAULT_MAX_CONNECTIONS: u32 = 100;
+    const DEFAULT_MIN_CONNECTIONS: u32 = 5;
+    const DEFAULT_ACQUIRE_TIMEOUT_SECS: u64 = 5;
+    const DEFAULT_MAX_LIFETIME_SECS: u64 = 1800;
+    const DEFAULT_IDLE_TIMEOUT_SECS: u64 = 600;
+
+    impl FromEnv for signet_cold_sql::SqlConnector {
+        fn inventory() -> Vec<&'static EnvItemInfo> {
+            vec![
+                &EnvItemInfo {
+                    var: URL_VAR,
+                    description: "SQL connection URL for cold storage (postgres:// or sqlite:)",
+                    optional: false,
+                },
+                &EnvItemInfo {
+                    var: MAX_CONNECTIONS_VAR,
+                    description: "Max SQL pool connections [default: 100]",
+                    optional: true,
+                },
+                &EnvItemInfo {
+                    var: MIN_CONNECTIONS_VAR,
+                    description: "Min SQL pool idle connections [default: 5]",
+                    optional: true,
+                },
+                &EnvItemInfo {
+                    var: ACQUIRE_TIMEOUT_SECS_VAR,
+                    description: "SQL pool acquire timeout in seconds [default: 5]",
+                    optional: true,
+                },
+                &EnvItemInfo {
+                    var: MAX_LIFETIME_SECS_VAR,
+                    description: "SQL pool max connection lifetime in seconds [default: 1800]",
+                    optional: true,
+                },
+                &EnvItemInfo {
+                    var: IDLE_TIMEOUT_SECS_VAR,
+                    description: "SQL pool idle timeout in seconds [default: 600]",
+                    optional: true,
+                },
+            ]
+        }
+
+        fn from_env() -> Result<Self, FromEnvErr> {
+            let url = String::from_env_var(URL_VAR)?;
+            let max_conns = u32::from_env_var_or(MAX_CONNECTIONS_VAR, DEFAULT_MAX_CONNECTIONS)?;
+            let min_conns = u32::from_env_var_or(MIN_CONNECTIONS_VAR, DEFAULT_MIN_CONNECTIONS)?;
+            let acquire_timeout =
+                u64::from_env_var_or(ACQUIRE_TIMEOUT_SECS_VAR, DEFAULT_ACQUIRE_TIMEOUT_SECS)?;
+            let max_lifetime =
+                u64::from_env_var_or(MAX_LIFETIME_SECS_VAR, DEFAULT_MAX_LIFETIME_SECS)?;
+            let idle_timeout =
+                u64::from_env_var_or(IDLE_TIMEOUT_SECS_VAR, DEFAULT_IDLE_TIMEOUT_SECS)?;
+
+            Ok(Self::new(url)
+                .with_max_connections(max_conns)
+                .with_min_connections(min_conns)
+                .with_acquire_timeout(std::time::Duration::from_secs(acquire_timeout))
+                .with_idle_timeout(Some(std::time::Duration::from_secs(idle_timeout)))
+                .with_max_lifetime(Some(std::time::Duration::from_secs(max_lifetime))))
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::{borrow::Cow, time::Duration};
