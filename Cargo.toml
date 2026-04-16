@@ -3,7 +3,7 @@ name = "init4-bin-base"
 
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
-version = "0.19.0"
+version = "0.19.1"
 edition = "2021"
 rust-version = "1.85"
 authors = ["init4", "James Prestwich", "evalir"]
@@ -15,6 +15,7 @@ repository = "https://github.com/init4tech/bin-base"
 init4-from-env-derive = { version = "0.2.0", path = "from-env-derive" }
 
 # Signet
+signet-cold-sql = { version = "0.7.1", optional = true, default-features = false, features = ["postgres", "sqlite"] }
 signet-constants = { version = "0.16.0" }
 signet-tx-cache = { version = "0.16.0", optional = true }
 
@@ -80,6 +81,7 @@ sse = ["perms", "signet-tx-cache/sse"]
 pylon = ["perms", "alloy/kzg"]
 block_watcher = ["dep:tokio"]
 rustls = ["dep:rustls", "rustls/aws-lc-rs"]
+cold-sql = ["dep:signet-cold-sql"]
 
 [[example]]
 name = "oauth"
