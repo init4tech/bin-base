@@ -138,7 +138,7 @@ impl Builders {
 
     /// Get the index of the builder that is allowed to sign a block for a
     /// particular timestamp.
-    pub fn index(&self, timestamp: u64) -> usize {
+    pub const fn index(&self, timestamp: u64) -> usize {
         self.config
             .calc()
             .slot_containing(timestamp)
