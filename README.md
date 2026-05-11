@@ -18,7 +18,7 @@ Common functionality for binaries produced by the [`init4`] project. This crate 
 
 ```toml
 [dependencies]
-init4-bin-base = "0.18"
+init4-bin-base = "0.20"
 ```
 
 ## Quick Start
