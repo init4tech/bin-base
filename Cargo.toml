@@ -3,7 +3,7 @@ name = "init4-bin-base"
 
 description = "Internal utilities for binaries produced by the init4 team"
 keywords = ["init4", "bin", "base"]
-version = "0.20.0"
+version = "0.21.0"
 edition = "2021"
 rust-version = "1.92"
 authors = ["init4", "James Prestwich", "evalir", "Fraser Hutchison"]
@@ -15,9 +15,9 @@ repository = "https://github.com/init4tech/bin-base"
 init4-from-env-derive = { version = "0.2.0", path = "from-env-derive" }
 
 # Signet
-signet-cold-sql = { version = "0.8.0", optional = true, default-features = false, features = ["postgres", "sqlite"] }
-signet-constants = { version = "0.17.1" }
-signet-tx-cache = { version = "0.17.1", optional = true }
+signet-cold-sql = { version = "0.9.0", optional = true, default-features = false, features = ["postgres", "sqlite"] }
+signet-constants = { version = "0.18.0" }
+signet-tx-cache = { version = "0.18.0", optional = true }
 
 # alloy
 alloy = { version = "1.0.35", optional = true, default-features = false, features = ["std", "signer-local", "consensus", "network"] }
