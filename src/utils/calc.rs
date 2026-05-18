@@ -340,6 +340,7 @@ impl From<KnownChains> for SlotCalculator {
         match value {
             KnownChains::Mainnet => SlotCalculator::mainnet(),
             KnownChains::Parmigiana => SlotCalculator::parmigiana_host(),
+            KnownChains::Gouda => SlotCalculator::parmigiana_host(),
             #[allow(deprecated)]
             KnownChains::Pecorino => SlotCalculator::pecorino_host(),
             KnownChains::Test => SlotCalculator::new(

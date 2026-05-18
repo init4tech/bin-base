@@ -15,8 +15,8 @@ repository = "https://github.com/init4tech/bin-base"
 init4-from-env-derive = { version = "0.2.0", path = "from-env-derive" }
 
 # Signet
-signet-cold-sql = { version = "0.9.0", optional = true, default-features = false, features = ["postgres", "sqlite"] }
-signet-constants = { version = "0.18.0" }
+signet-cold-sql = { git = "https://github.com/init4tech/storage", rev = "d5bf6fa", optional = true, default-features = false, features = ["postgres", "sqlite"] }
+signet-constants = { git = "https://github.com/init4tech/signet-sdk", rev = "ecce6a48a6af81c5f668c142b3a63452de02a146" }
 signet-tx-cache = { version = "0.18.0", optional = true }
 
 # alloy
